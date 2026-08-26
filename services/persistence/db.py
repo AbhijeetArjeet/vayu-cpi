@@ -53,12 +53,17 @@ class FareObservation(Base):
 
 
 def init_db() -> None:
-    """Creates tables and attempts to convert fare_observations into a TimescaleDB hypertable."""
-    Base.metadata.create_all(engine)
-    with engine.connect() as conn:
-        try:
+    """Creates tables. Optionally sets up TimescaleDB hypertable (skipped on regular PostgreSQL)."""
+    try:
+        Base.metadata.create_all(engine)
+    except Exception as e:
+        print(f"[db] Table creation failed: {e}")
+        return
+
+    # TimescaleDB is optional — Railway uses regular PostgreSQL
+    try:
+        with engine.connect() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb;"))
-            # Note: hypertable on string time column may fail, but we'll try
             conn.execute(
                 text(
                     "SELECT create_hypertable('fare_observations', 'scraped_at', "
@@ -66,9 +71,8 @@ def init_db() -> None:
                 )
             )
             conn.commit()
-        except Exception as e:
-            print(f"[db] TimescaleDB hypertable setup skipped: {e}")
-            conn.rollback()
+    except Exception:
+        pass  # Regular PostgreSQL — that's fine
 
 
 def save_fare_records(records: list[RawFareRecord]) -> int:

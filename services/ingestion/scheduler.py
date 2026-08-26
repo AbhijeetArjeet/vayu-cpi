@@ -3,7 +3,6 @@ import logging
 import os
 from apscheduler.schedulers.blocking import BlockingScheduler
 from services.ingestion.live_fetcher import fetch_all_corridors
-from services.ingestion.amadeus_fetcher import fetch_live_gds_flights
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("vayu-cpi.scheduler")
