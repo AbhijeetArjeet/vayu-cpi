@@ -23,6 +23,31 @@ from services.engine.index_calculator import (
 router = APIRouter(prefix="/api/v1/cpi", tags=["MoSPI Macroeconomic Engine"])
 
 
+@router.post("/trigger-sweep")
+async def trigger_live_sweep():
+    """Triggers an immediate live Google Flights scraping sweep across all corridors."""
+    try:
+        from services.ingestion.live_fetcher import fetch_all_corridors
+        from services.persistence.db import save_fare_records
+
+        records = fetch_all_corridors()
+        saved_count = 0
+        if records:
+            try:
+                saved_count = save_fare_records(records)
+            except Exception:
+                pass
+        return {
+            "status": "success",
+            "message": f"Successfully scraped {len(records)} live fares from Google Flights",
+            "count": len(records),
+            "saved_to_db": saved_count,
+            "timestamp": date.today().isoformat()
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "count": 0}
+
+
 @router.get("/airfare-index")
 async def get_airfare_index(target_date: date | None = Query(None)):
     """Returns the national composite airfare CPI (Base 2024 = 100) for
