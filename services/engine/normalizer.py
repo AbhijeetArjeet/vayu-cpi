@@ -35,9 +35,15 @@ def deduplicate_by_flight(
     double-counted in the geometric mean."""
     seen: dict[tuple, FareObservation] = {}
     for obs in observations:
-        key = (obs.flight_number, obs.scraped_at.strftime("%Y-%m-%d %H"))
+        # scraped_at may be str or datetime
+        sa = obs.scraped_at
+        if hasattr(sa, 'strftime'):
+            hour_key = sa.strftime("%Y-%m-%d %H")
+        else:
+            hour_key = str(sa)[:13]  # "2026-08-26T22" — 13 chars covers date+hour
+        key = (obs.flight_number, hour_key)
         existing = seen.get(key)
-        if existing is None or obs.scraped_at > existing.scraped_at:
+        if existing is None or str(obs.scraped_at) > str(existing.scraped_at):
             seen[key] = obs
     return list(seen.values())
 
