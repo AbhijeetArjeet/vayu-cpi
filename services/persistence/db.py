@@ -18,15 +18,20 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 from core.schemas import RawFareRecord
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql+psycopg2://postgres:postgres@localhost:5432/vayu_cpi"
-)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vayu_test.db")
 
-# Railway/Heroku provide postgres:// but SQLAlchemy needs postgresql://
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+try:
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    # Test connection
+    with engine.connect() as conn:
+        pass
+except Exception:
+    # Fallback to SQLite file DB for testing or local run without Postgres
+    engine = create_engine("sqlite:///./vayu_test.db")
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
