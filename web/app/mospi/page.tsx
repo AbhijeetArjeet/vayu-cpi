@@ -3,20 +3,27 @@
 import { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Download } from 'lucide-react';
-import { fetchAirfareIndexSeries, exportCsv, NationalCompositeCPI } from '@/lib/api';
+import { fetchAirfareIndexSeries, fetchAllRoutesCurrent, exportCsv, NationalCompositeCPI, RouteJevonsIndex } from '@/lib/api';
 
 export default function MospiPortal() {
   const [data, setData] = useState<NationalCompositeCPI[]>([]);
+  const [routesData, setRoutesData] = useState<RouteJevonsIndex[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'composite' | 'advance' | 'spot'>('composite');
 
   useEffect(() => {
     async function loadData() {
       try {
-        const series = await fetchAirfareIndexSeries();
+        const [series, routes] = await Promise.all([
+          fetchAirfareIndexSeries(),
+          fetchAllRoutesCurrent()
+        ]);
         setData(series);
-      } catch (error) {
-        console.error('Failed to load CPI series', error);
+        setRoutesData(routes.routes || []);
+      } catch (err) {
+        console.error('Failed to load CPI series', err);
+        setError('Failed to load data. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -25,7 +32,30 @@ export default function MospiPortal() {
   }, []);
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64 text-slate-400">Loading data...</div>;
+    return (
+      <div className="flex flex-col justify-center items-center h-64 space-y-4">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-slate-400 font-medium">Loading MoSPI Macro Data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-6 py-4 rounded-xl flex items-center gap-3">
+          <span className="font-semibold">Error:</span> {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64 text-slate-400 bg-slate-900 border border-slate-800 rounded-xl">
+        No CPI series data available for the selected period.
+      </div>
+    );
   }
 
   const latestData = data[data.length - 1];
@@ -130,6 +160,45 @@ export default function MospiPortal() {
               />
             </AreaChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden mt-8">
+        <div className="px-6 py-4 border-b border-slate-800">
+          <h2 className="text-xl font-semibold">Per-Route Micro-Index Breakdown</h2>
+          <p className="text-sm text-slate-400 mt-1">Jevons micro-indices for every tracked corridor and horizon</p>
+        </div>
+        <div className="overflow-x-auto">
+          {routesData.length === 0 ? (
+            <div className="px-6 py-8 text-center text-slate-500">No route micro-indices available.</div>
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-800/50 text-slate-300">
+                <tr>
+                  <th className="px-6 py-3 font-medium">Origin</th>
+                  <th className="px-6 py-3 font-medium">Dest</th>
+                  <th className="px-6 py-3 font-medium">Horizon</th>
+                  <th className="px-6 py-3 font-medium">Jevons Index</th>
+                  <th className="px-6 py-3 font-medium">Current GeoMean (₹)</th>
+                  <th className="px-6 py-3 font-medium">Base GeoMean (₹)</th>
+                  <th className="px-6 py-3 font-medium">Sample Size</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/50">
+                {routesData.map((route, idx) => (
+                  <tr key={idx} className="hover:bg-slate-800/25 transition-colors">
+                    <td className="px-6 py-4 font-semibold">{route.origin}</td>
+                    <td className="px-6 py-4 font-semibold">{route.destination}</td>
+                    <td className="px-6 py-4">T-{route.horizon_days}</td>
+                    <td className="px-6 py-4 font-bold text-blue-400">{route.jevons_index.toFixed(2)}</td>
+                    <td className="px-6 py-4">{route.current_geom_mean.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-slate-400">{route.base_geom_mean.toLocaleString()}</td>
+                    <td className="px-6 py-4">{route.sample_size}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

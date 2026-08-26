@@ -2,25 +2,30 @@
 
 import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { fetchSurgeAlerts, fetchFeeDecomposition, SurgeAlert } from '@/lib/api';
-import { AlertCircle } from 'lucide-react';
+import { fetchSurgeAlerts, fetchFeeDecomposition, fetchRouteConcentration, SurgeAlert, RouteConcentration, FeeDecomposition } from '@/lib/api';
+import { AlertCircle, Info } from 'lucide-react';
 
 export default function DgcaPortal() {
   const [alerts, setAlerts] = useState<SurgeAlert[]>([]);
-  const [feeData, setFeeData] = useState<any[]>([]);
+  const [feeData, setFeeData] = useState<FeeDecomposition[]>([]);
+  const [concentration, setConcentration] = useState<RouteConcentration | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [alertsData, fees] = await Promise.all([
+        const [alertsData, fees, concData] = await Promise.all([
           fetchSurgeAlerts(),
-          fetchFeeDecomposition()
+          fetchFeeDecomposition(),
+          fetchRouteConcentration()
         ]);
         setAlerts(alertsData);
         setFeeData(fees);
-      } catch (error) {
-        console.error('Failed to load DGCA data', error);
+        setConcentration(concData);
+      } catch (err) {
+        console.error('Failed to load DGCA data', err);
+        setError('Failed to load regulatory data. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -29,7 +34,22 @@ export default function DgcaPortal() {
   }, []);
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64 text-slate-400">Loading regulatory data...</div>;
+    return (
+      <div className="flex flex-col justify-center items-center h-64 space-y-4">
+        <div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-slate-400 font-medium">Loading Regulatory Data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-6 py-4 rounded-xl flex items-center gap-3">
+          <span className="font-semibold">Error:</span> {error}
+        </div>
+      </div>
+    );
   }
 
   const getSeverityBadge = (severity: string) => {
@@ -113,6 +133,55 @@ export default function DgcaPortal() {
               <Bar dataKey="convenience_fee" name="Convenience Fee" stackId="a" fill="#8b5cf6" />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 mt-8">
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-xl font-semibold">DGCA Route Weights (ESTIMATED)</h2>
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-500 text-xs font-semibold border border-yellow-500/30">
+            <Info className="h-3 w-3" /> ESTIMATED
+          </div>
+        </div>
+        <p className="text-sm text-slate-400 mb-6">
+          Passenger volume weights for the national index computation. {concentration?.note}
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700/50">
+            <div className="text-sm text-slate-400 mb-1">Market Concentration (HHI)</div>
+            <div className="text-3xl font-bold text-slate-200">{concentration?.hhi.toLocaleString()}</div>
+          </div>
+          <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700/50">
+            <div className="text-sm text-slate-400 mb-1">Concentration Level</div>
+            <div className="text-xl font-bold text-slate-200 mt-2">{concentration?.concentration_label.replace('_', ' ')}</div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-800/50 text-slate-300">
+              <tr>
+                <th className="px-6 py-3 font-medium">Corridor</th>
+                <th className="px-6 py-3 font-medium">Volume Weight</th>
+                <th className="px-6 py-3 font-medium">Percentage</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50">
+              {concentration?.routes.map((r, idx) => (
+                <tr key={idx} className="hover:bg-slate-800/25 transition-colors">
+                  <td className="px-6 py-4 font-semibold">{r.route}</td>
+                  <td className="px-6 py-4">{r.weight.toFixed(2)}</td>
+                  <td className="px-6 py-4 text-blue-400">{(r.weight * 100).toFixed(0)}%</td>
+                </tr>
+              ))}
+              {(!concentration?.routes || concentration.routes.length === 0) && (
+                <tr>
+                  <td colSpan={3} className="px-6 py-8 text-center text-slate-500">No route concentration data available.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
