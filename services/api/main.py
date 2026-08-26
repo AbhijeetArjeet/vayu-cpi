@@ -25,20 +25,10 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# --- CORS ---
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-]
-
-_vercel_url = os.getenv("FRONTEND_URL")
-if _vercel_url:
-    ALLOWED_ORIGINS.append(_vercel_url)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
