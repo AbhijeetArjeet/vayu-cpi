@@ -60,7 +60,7 @@ def fetch_route_horizon(origin: str, destination: str, horizon_days: int) -> Lis
                 continue
 
             airlines = getattr(flight_group, "airlines", [])
-            carrier_name = airlines[0] if airlines else "Unknown Airline"
+            carrier_name = str(airlines[0]) if (airlines and len(airlines) > 0) else "Unknown Airline"
             carrier_code = str(getattr(flight_group, "type", "XX")).upper()
 
             # Parse departure time if present
