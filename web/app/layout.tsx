@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
-import { Plane, BarChart3, Shield, AlertTriangle } from "lucide-react";
+import { Plane, BarChart3, Shield } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 
