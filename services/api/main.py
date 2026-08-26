@@ -50,6 +50,51 @@ app.include_router(dgca_router)
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+    # Start the background fare scraper inside the web process
+    # (Render free plan doesn't support separate workers)
+    _start_background_scheduler()
+
+
+@app.on_event("shutdown")
+def on_shutdown() -> None:
+    _stop_background_scheduler()
+
+
+# --------------- Background Scheduler ---------------
+from apscheduler.schedulers.background import BackgroundScheduler
+import logging
+
+_scheduler: BackgroundScheduler | None = None
+_logger = logging.getLogger("vayu-cpi.bg-scheduler")
+
+
+def _start_background_scheduler() -> None:
+    global _scheduler
+    try:
+        from services.ingestion.scheduler import run_ingestion_sweep
+
+        _scheduler = BackgroundScheduler()
+        _scheduler.add_job(
+            run_ingestion_sweep,
+            "interval",
+            hours=6,
+            id="vayu_cpi_sweep",
+        )
+        _scheduler.start()
+        _logger.info("Background scheduler started (every 6 hours)")
+
+        # Run first sweep immediately in a thread so it doesn't block startup
+        import threading
+        threading.Thread(target=run_ingestion_sweep, daemon=True).start()
+    except Exception as e:
+        _logger.warning(f"Could not start background scheduler: {e}")
+
+
+def _stop_background_scheduler() -> None:
+    global _scheduler
+    if _scheduler:
+        _scheduler.shutdown(wait=False)
+        _logger.info("Background scheduler stopped")
 
 
 @app.get("/health")
