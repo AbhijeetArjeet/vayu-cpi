@@ -1,0 +1,10 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+apscheduler>=3.10
+fast-flights>=2.2
+amadeus>=8.0
+requests>=2.31
+python-dotenv>=1.0
