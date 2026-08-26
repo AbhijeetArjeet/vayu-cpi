@@ -42,7 +42,7 @@ async def get_airfare_index_series(days_back: int = Query(30, ge=1, le=365)):
         d = today - timedelta(days=offset)
         result = compute_national_composite_cpi(d)
         series.append(result.model_dump(mode="json"))
-    return {"days": len(series), "series": series}
+    return series
 
 
 @router.get("/route-index")
