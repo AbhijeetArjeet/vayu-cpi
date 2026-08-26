@@ -1,24 +1,13 @@
 """
 services/persistence/db.py
 PostgreSQL/TimescaleDB persistence layer for raw fare observations.
-
-Uses TimescaleDB's hypertable extension for the time-series fare table
-if the extension is available; falls back to a plain Postgres table
-otherwise (functionally identical, just without automatic time
-partitioning -- fine for a hackathon-scale demo).
-
-Env vars:
-    DATABASE_URL  e.g. postgresql+psycopg2://user:pass@localhost:5432/vayu_cpi
 """
 
 from __future__ import annotations
 
 import os
-from datetime import datetime
-
 from sqlalchemy import (
     Column,
-    DateTime,
     Float,
     Integer,
     String,
@@ -43,12 +32,13 @@ class FareObservation(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     portal = Column(String(64), nullable=False)
+    carrier_name = Column(String(64), nullable=False)
     flight_number = Column(String(32), nullable=False)
     carrier_code = Column(String(4), nullable=False)
     origin = Column(String(3), nullable=False, index=True)
     destination = Column(String(3), nullable=False, index=True)
-    departure_time = Column(DateTime, nullable=False)
-    scraped_at = Column(DateTime, nullable=False, index=True)
+    departure_time = Column(String, nullable=False)
+    scraped_at = Column(String, nullable=False, index=True)
     horizon_days = Column(Integer, nullable=False, index=True)
 
     base_fare = Column(Float, nullable=False)
@@ -59,12 +49,12 @@ class FareObservation(Base):
 
 
 def init_db() -> None:
-    """Creates tables and attempts to convert fare_observations into a
-    TimescaleDB hypertable. Safe to call repeatedly."""
+    """Creates tables and attempts to convert fare_observations into a TimescaleDB hypertable."""
     Base.metadata.create_all(engine)
     with engine.connect() as conn:
         try:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb;"))
+            # Note: hypertable on string time column may fail, but we'll try
             conn.execute(
                 text(
                     "SELECT create_hypertable('fare_observations', 'scraped_at', "
@@ -73,8 +63,6 @@ def init_db() -> None:
             )
             conn.commit()
         except Exception as e:
-            # TimescaleDB extension not available (e.g. plain Postgres in
-            # a hackathon sandbox) -- table still works as a normal table.
             print(f"[db] TimescaleDB hypertable setup skipped: {e}")
             conn.rollback()
 
@@ -86,6 +74,7 @@ def save_fare_records(records: list[RawFareRecord]) -> int:
         rows = [
             FareObservation(
                 portal=r.portal,
+                carrier_name=r.carrier_name,
                 flight_number=r.flight_number,
                 carrier_code=r.carrier_code,
                 origin=r.origin,
@@ -112,12 +101,10 @@ def fetch_observations(
     origin: str,
     destination: str,
     horizon_days: int,
-    since: datetime | None = None,
-    until: datetime | None = None,
+    since=None,
+    until=None,
 ) -> list[FareObservation]:
-    """Fetches raw observations for one route+horizon, optionally bounded
-    to a time window. Used by the index engine to pull the sample set
-    for both the "current" period and the "base" period."""
+    """Fetches raw observations for one route+horizon."""
     session = SessionLocal()
     try:
         q = session.query(FareObservation).filter(
@@ -126,9 +113,18 @@ def fetch_observations(
             FareObservation.horizon_days == horizon_days,
         )
         if since is not None:
-            q = q.filter(FareObservation.scraped_at >= since)
+            since_str = since.isoformat() if hasattr(since, 'isoformat') else str(since)
+            q = q.filter(FareObservation.scraped_at >= since_str)
         if until is not None:
-            q = q.filter(FareObservation.scraped_at <= until)
+            until_str = until.isoformat() if hasattr(until, 'isoformat') else str(until)
+            q = q.filter(FareObservation.scraped_at <= until_str)
         return q.order_by(FareObservation.scraped_at.asc()).all()
+    finally:
+        session.close()
+
+def fetch_all_observations() -> list[FareObservation]:
+    session = SessionLocal()
+    try:
+        return session.query(FareObservation).all()
     finally:
         session.close()

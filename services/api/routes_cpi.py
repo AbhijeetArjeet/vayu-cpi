@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 
-from core.dgca_weights import TRACKED_HORIZONS, TRACKED_ROUTES
+from core.dgca_weights import HORIZON_ALPHA, ALL_CORRIDORS
 from services.engine.index_calculator import (
     compute_national_composite_cpi,
     compute_route_jevons_index,
@@ -35,11 +35,6 @@ async def get_airfare_index(target_date: date | None = Query(None)):
 async def get_airfare_index_series(days_back: int = Query(30, ge=1, le=365)):
     """Returns the composite CPI as a daily time series for the last
     `days_back` days -- what the MoSPI dashboard's line chart consumes.
-
-    Note: days before the pipeline has actually collected data will
-    return the neutral 100.0 placeholder (see index_calculator's
-    no-data fallback) rather than being omitted, so the frontend gets a
-    continuous series to plot without needing to handle gaps itself.
     """
     today = date.today()
     series = []
@@ -57,9 +52,7 @@ async def get_route_index(
     horizon_days: int = Query(..., description="30, 7, or 1"),
     target_date: date | None = Query(None),
 ):
-    """Returns the Jevons micro-index for a single route/horizon pair --
-    used by the horizon comparison selector (T-30 vs T-1) on the
-    frontend."""
+    """Returns the Jevons micro-index for a single route/horizon pair."""
     result = compute_route_jevons_index(
         origin.upper(), destination.upper(), horizon_days, target_date
     )
@@ -77,12 +70,10 @@ async def get_route_index(
 
 @router.get("/routes/all-current")
 async def get_all_routes_current(target_date: date | None = Query(None)):
-    """Returns every tracked route x horizon micro-index for one date --
-    the raw grid behind the MoSPI dashboard's corridor breakdown."""
+    """Returns every tracked route x horizon micro-index for one date."""
     results = []
-    for route in TRACKED_ROUTES:
-        origin, destination = route.split("-")
-        for horizon in TRACKED_HORIZONS:
+    for origin, destination in ALL_CORRIDORS:
+        for horizon in HORIZON_ALPHA.keys():
             idx = compute_route_jevons_index(origin, destination, horizon, target_date)
             if idx is not None:
                 results.append(idx.model_dump(mode="json"))
@@ -91,8 +82,7 @@ async def get_all_routes_current(target_date: date | None = Query(None)):
 
 @router.get("/export/csv")
 async def export_csv(days_back: int = Query(30, ge=1, le=365)):
-    """Streams a MoSPI-compatible CSV dump of the composite index time
-    series -- the "one-click official CSV exporter" from the spec."""
+    """Streams a MoSPI-compatible CSV dump of the composite index time series."""
     today = date.today()
     buffer = io.StringIO()
     writer = csv.writer(buffer)
@@ -102,7 +92,7 @@ async def export_csv(days_back: int = Query(30, ge=1, le=365)):
             "composite_index",
             "advance_sub_index",
             "spot_sub_index",
-            "routes_tracked",
+            "tracked_corridors",
             "dgca_traffic_coverage_pct",
         ]
     )
@@ -115,7 +105,7 @@ async def export_csv(days_back: int = Query(30, ge=1, le=365)):
                 result.composite_index,
                 result.advance_sub_index,
                 result.spot_sub_index,
-                result.routes_tracked,
+                result.tracked_corridors,
                 result.dgca_traffic_coverage_pct,
             ]
         )
