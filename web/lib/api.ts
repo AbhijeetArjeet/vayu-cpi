@@ -22,7 +22,7 @@ export interface SurgeAlert {
   flagged_at: string;
 }
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const MOCK_CPI_SERIES: NationalCompositeCPI[] = [
   { calculation_date: '2024-01-01', composite_index: 100.0, advance_sub_index: 100.0, spot_sub_index: 100.0, tracked_corridors: 50, dgca_traffic_coverage_pct: 85 },
