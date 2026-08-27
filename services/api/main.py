@@ -27,7 +27,7 @@ app = FastAPI(
 )
 
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.responses import Response, JSONResponse
 from fastapi import Request
 
 class DynamicCORSMiddleware(BaseHTTPMiddleware):
@@ -64,6 +64,22 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
+        headers=headers,
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    origin = request.headers.get("origin")
+    _logger.error(f"[GLOBAL_EXCEPTION] Unhandled error: {exc}", exc_info=True)
+    headers = {}
+    if origin:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Admin-Token, Cookie"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error occurred."},
         headers=headers,
     )
 
