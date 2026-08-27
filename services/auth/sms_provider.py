@@ -137,6 +137,12 @@ class Fast2SmsOtpProvider(OtpProvider):
         digits = re.sub(r"\D", "", phone or "")
         clean_phone = digits[-10:] if len(digits) >= 10 else digits
 
+        url = "https://www.fast2sms.com/dev/bulkV2"
+        headers = {
+            "authorization": self.api_key,
+            "Content-Type": "application/json"
+        }
+
         # Fast2SMS: Try OTP route first, with automatic fallback to Quick SMS (route q)
         for route_mode in ["otp", "q"]:
             if route_mode == "otp":
