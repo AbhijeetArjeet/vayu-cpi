@@ -1,11 +1,15 @@
 """
 services/persistence/db.py
-PostgreSQL/TimescaleDB persistence layer for raw fare observations.
+PostgreSQL/TimescaleDB persistence layer for raw fare observations with rich stage logging.
 """
 
 from __future__ import annotations
 
 import os
+import logging
+import traceback
+from typing import Dict, Any, List
+
 from sqlalchemy import (
     Column,
     Float,
@@ -17,6 +21,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from core.schemas import RawFareRecord
+from core.env_diag import sanitize_connection_url
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("vayu-cpi.db")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vayu_test.db")
 
@@ -25,11 +33,14 @@ if DATABASE_URL.startswith("postgres://"):
 
 try:
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-    # Test connection
     with engine.connect() as conn:
         pass
-except Exception:
-    # Fallback to SQLite file DB for testing or local run without Postgres
+    logger.info(f"[DB_INIT] Successfully bound database engine: {sanitize_connection_url(DATABASE_URL)}")
+except Exception as _conn_err:
+    logger.warning(
+        f"[DB_INIT_FALLBACK] Could not connect to primary DATABASE_URL ({sanitize_connection_url(DATABASE_URL)}): {_conn_err}. "
+        "Falling back to local SQLite database (sqlite:///./vayu_test.db)"
+    )
     engine = create_engine("sqlite:///./vayu_test.db")
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -58,14 +69,14 @@ class FareObservation(Base):
 
 
 def init_db() -> None:
-    """Creates tables. Optionally sets up TimescaleDB hypertable (skipped on regular PostgreSQL)."""
+    """Creates tables. Optionally sets up TimescaleDB hypertable (skipped on regular PostgreSQL/SQLite)."""
     try:
         Base.metadata.create_all(engine)
+        logger.info("[DB_INIT] Database schema tables ensured.")
     except Exception as e:
-        print(f"[db] Table creation failed: {e}")
+        logger.error(f"[DB_INIT_ERROR] Table creation failed: {e}\n{traceback.format_exc()}")
         return
 
-    # TimescaleDB is optional — Railway uses regular PostgreSQL
     try:
         with engine.connect() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb;"))
@@ -76,12 +87,20 @@ def init_db() -> None:
                 )
             )
             conn.commit()
+            logger.info("[DB_INIT] TimescaleDB hypertable enabled.")
     except Exception:
-        pass  # Regular PostgreSQL — that's fine
+        # Expected on regular PostgreSQL or SQLite
+        pass
 
 
-def save_fare_records(records: list[RawFareRecord]) -> int:
-    """Bulk-inserts a batch of fare records. Returns the count saved."""
+def save_fare_records_with_diagnostics(records: list[RawFareRecord]) -> Dict[str, Any]:
+    """Bulk-inserts records and returns detailed diagnostic metrics."""
+    attempted_cnt = len(records)
+    if not records:
+        logger.info("[DB_INSERT] Zero records provided for persistence.")
+        return {"status": "success", "attempted": 0, "inserted": 0, "error": None}
+
+    logger.info(f"\n[DB_INSERT_START]\n  Attempted : {attempted_cnt} records")
     session = SessionLocal()
     try:
         rows = [
@@ -105,9 +124,45 @@ def save_fare_records(records: list[RawFareRecord]) -> int:
         ]
         session.bulk_save_objects(rows)
         session.commit()
-        return len(rows)
+        inserted_cnt = len(rows)
+        
+        logger.info(
+            f"\n[DB_INSERT_SUCCESS]\n"
+            f"  Attempted : {attempted_cnt}\n"
+            f"  Inserted  : {inserted_cnt}"
+        )
+        return {"status": "success", "attempted": attempted_cnt, "inserted": inserted_cnt, "error": None}
+    except Exception as exc:
+        session.rollback()
+        exc_type = type(exc).__name__
+        exc_msg = str(exc)
+        tb_str = traceback.format_exc()
+        
+        logger.error(
+            f"\n[DB_INSERT_FAILED]\n"
+            f"  Attempted      : {attempted_cnt}\n"
+            f"  Exception Type : {exc_type}\n"
+            f"  Message        : {exc_msg}\n"
+            f"  Traceback      :\n{tb_str}"
+        )
+        return {
+            "status": "failed",
+            "attempted": attempted_cnt,
+            "inserted": 0,
+            "error": {"type": exc_type, "message": exc_msg, "traceback": tb_str},
+        }
     finally:
         session.close()
+
+
+def save_fare_records(records: list[RawFareRecord]) -> int:
+    """Bulk-inserts a batch of fare records. Returns the count saved."""
+    diag = save_fare_records_with_diagnostics(records)
+    if diag["status"] == "failed":
+        # Do not swallow exception silently in production background worker
+        err = diag.get("error") or {}
+        raise RuntimeError(f"Database bulk insert failed ({err.get('type')}): {err.get('message')}")
+    return diag.get("inserted", 0)
 
 
 def fetch_observations(
@@ -134,6 +189,7 @@ def fetch_observations(
         return q.order_by(FareObservation.scraped_at.asc()).all()
     finally:
         session.close()
+
 
 def fetch_all_observations() -> list[FareObservation]:
     session = SessionLocal()

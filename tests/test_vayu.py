@@ -148,3 +148,35 @@ def test_fastapi_endpoints():
     res = client.get("/api/v1/dgca/route-concentration")
     assert res.status_code == 200
     assert "hhi" in res.json()
+
+
+def test_env_diag():
+    from core.env_diag import get_system_diagnostics, sanitize_connection_url
+    
+    assert sanitize_connection_url("postgresql://user:secretpass@localhost:5432/db") == "postgresql://user:***@localhost:5432/db"
+    
+    diag = get_system_diagnostics()
+    assert "python_version" in diag
+    assert "packages" in diag
+    assert "fast_flights" in diag["packages"]
+
+
+def test_debug_endpoint():
+    from fastapi.testclient import TestClient
+    from services.api.main import app
+
+    client = TestClient(app)
+    
+    # Forbidden without force parameter
+    res = client.get("/api/v1/debug/flight-fetch")
+    assert res.status_code == 403
+
+    # Works with force=true (benchmark route DEL-BOM T-7)
+    res = client.get("/api/v1/debug/flight-fetch?force=true&origin=DEL&destination=BOM&horizon_days=7")
+    assert res.status_code == 200
+    data = res.json()
+    assert "status" in data
+    assert data["route"] == "DEL-BOM"
+    assert data["horizon"] == 7
+    assert "fast_flights_version" in data
+

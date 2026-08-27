@@ -6,6 +6,7 @@ dist/
 build/
 .env
 *.log
+*.db
 data/
 node_modules/
 .next/

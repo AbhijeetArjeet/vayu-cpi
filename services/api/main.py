@@ -1,7 +1,7 @@
 """
 services/api/main.py
 FastAPI application entrypoint. Wires up CORS for the Next.js frontend
-and mounts the MoSPI and DGCA route modules.
+and mounts the MoSPI, DGCA, and Production Debug route modules.
 
 Run:
     uvicorn services.api.main:app --reload --port 8000
@@ -11,6 +11,7 @@ import os
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from core.env_diag import print_startup_diagnostics
 
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("vayu-cpi.api")
@@ -19,8 +20,8 @@ app = FastAPI(
     title="VAYU-CPI API",
     description=(
         "Real-time airfare price index for India (SIH26056) -- "
-        "MoSPI macroeconomic index endpoints and DGCA surge/anomaly "
-        "monitoring endpoints."
+        "MoSPI macroeconomic index endpoints, DGCA surge/anomaly "
+        "monitoring endpoints, and production diagnostic engine."
     ),
     version="0.1.0",
 )
@@ -37,8 +38,10 @@ app.add_middleware(
 try:
     from services.api.routes_cpi import router as cpi_router
     from services.api.routes_dgca import router as dgca_router
+    from services.api.routes_debug import router as debug_router
     app.include_router(cpi_router)
     app.include_router(dgca_router)
+    app.include_router(debug_router)
 except Exception as e:
     _logger.warning(f"Could not load route modules: {e}")
 
@@ -46,11 +49,14 @@ except Exception as e:
 # --- Startup ---
 @app.on_event("startup")
 def on_startup() -> None:
+    # Print safe runtime diagnostic summary (dependencies, OS, DB target, flags)
+    print_startup_diagnostics(_logger)
+
     # Init database (safe - handles missing TimescaleDB)
     try:
         from services.persistence.db import init_db
         init_db()
-        _logger.info("Database initialized")
+        _logger.info("Database initialized successfully")
     except Exception as e:
         _logger.warning(f"Database init skipped: {e}")
 
