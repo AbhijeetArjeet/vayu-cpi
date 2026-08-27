@@ -105,8 +105,8 @@ export default function Navbar() {
                   <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 dark:from-blue-400 dark:via-indigo-400 dark:to-cyan-400 bg-clip-text text-transparent">
                     VAYU-CPI
                   </span>
-                  <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-full">
-                    SIH26056
+                  <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-full">
+                    OFFICIAL
                   </span>
                 </div>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium hidden sm:inline">
@@ -162,7 +162,7 @@ export default function Navbar() {
               <RefreshCw className={`h-4 w-4 ${isSweeping ? "animate-spin text-blue-500" : ""}`} />
             </button>
 
-            {/* SIH Demo Mode Toggle */}
+            {/* System Simulation Control Toggle */}
             <button
               onClick={() => setDemoMode(!demoMode)}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -172,7 +172,7 @@ export default function Navbar() {
               }`}
             >
               <Zap className={`h-3.5 w-3.5 ${demoMode ? "fill-amber-400 text-amber-500" : ""}`} />
-              <span className="hidden lg:inline">DEMO MODE</span>
+              <span className="hidden lg:inline">SIMULATE</span>
             </button>
 
             {/* Theme Toggle */}

@@ -11,6 +11,10 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
 
+import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from fastapi import HTTPException, status
 
 from services.persistence.db import SessionLocal, User, OtpChallenge, AuditLog
@@ -158,18 +162,23 @@ def request_regulator_otp(phone: str, ip_address: Optional[str] = None) -> Dict[
         session.add(new_challenge)
         session.commit()
 
-        # Dispatch real SMS via OtpProvider
-        provider = get_otp_provider()
-        sms_result = provider.send_otp(clean_phone, raw_otp, expires_minutes=5)
+        # Dispatch code via Email (SMTP) or SMS (OtpProvider)
+        if "@" in clean_phone:
+            dispatch_result = send_email_otp(clean_phone, raw_otp, expires_minutes=5)
+            medium_label = "Email"
+        else:
+            provider = get_otp_provider()
+            dispatch_result = provider.send_otp(clean_phone, raw_otp, expires_minutes=5)
+            medium_label = "SMS Gateway"
 
-        if not sms_result.get("success"):
+        if not dispatch_result.get("success"):
             new_challenge.status = "EXPIRED"
             session.commit()
-            err_reason = sms_result.get("error", "SMS dispatch failed")
+            err_reason = dispatch_result.get("error", "Dispatch failed")
             log_audit_event(session, "REGULATOR_OTP_REQUEST", "FAILURE_PROVIDER_ERROR", user_id=user.id, phone_masked=masked, ip_address=ip_address)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"SMS Gateway: {err_reason}",
+                detail=f"{medium_label}: {err_reason}",
             )
 
         log_audit_event(session, "REGULATOR_OTP_REQUEST", "SUCCESS", user_id=user.id, phone_masked=masked, ip_address=ip_address)
@@ -281,3 +290,51 @@ def verify_regulator_otp(phone: str, otp_code: str, ip_address: Optional[str] = 
         }
     finally:
         session.close()
+
+
+def send_email_otp(to_email: str, otp: str, expires_minutes: int = 5) -> Dict[str, Any]:
+    """Sends OTP verification code via configured SMTP server (Gmail, Outlook, etc.)."""
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+
+    if not smtp_user or not smtp_password:
+        logger.error("[EMAIL_ERROR] SMTP credentials (SMTP_USER/SMTP_PASSWORD) are not configured.")
+        return {
+            "success": False,
+            "error": "Email dispatcher credentials (SMTP_USER/SMTP_PASSWORD) are not configured on Railway."
+        }
+
+    msg = MIMEMultipart()
+    msg["From"] = f"VAYU-CPI Authority <{smtp_user}>"
+    msg["To"] = to_email
+    msg["Subject"] = "VAYU-CPI Secure Verification Code"
+
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+        <h2 style="color: #0284c7; margin-bottom: 20px;">VAYU-CPI Regulatory Authentication Gateway</h2>
+        <p>You requested a one-time password (OTP) to log into the restricted Ministry of Statistics (MoSPI) Regulatory Portal.</p>
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; text-align: center; margin: 25px 0; max-width: 300px;">
+          <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #1e3a8a;">{otp}</span>
+        </div>
+        <p>This verification code is valid for <strong>{expires_minutes} minutes</strong>. For security, do not share this code with anyone.</p>
+        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
+        <p style="font-size: 11px; color: #9ca3af;">This is an automated security transmission. If you did not request this code, please ignore this email.</p>
+      </body>
+    </html>
+    """
+    msg.attach(MIMEText(body, "html"))
+
+    try:
+        server = smtplib.SMTP(smtp_host, smtp_port)
+        server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.send_message(msg)
+        server.quit()
+        logger.info(f"[EMAIL_SUCCESS] OTP sent via SMTP to {to_email}")
+        return {"success": True, "error": None}
+    except Exception as e:
+        logger.error(f"[SMTP_ERROR] Failed to send email to {to_email}: {e}")
+        return {"success": False, "error": str(e)}

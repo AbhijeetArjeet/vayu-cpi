@@ -33,20 +33,32 @@ def verify_otp_hash(otp_code: str, stored_hash: str) -> bool:
 
 
 def sanitize_phone(phone: str) -> str:
-    """Normalizes Indian phone numbers into clean E.164 format (+91XXXXXXXXXX)."""
-    digits = re.sub(r"\D", "", phone or "")
+    """Normalizes Indian phone numbers into clean E.164 format (+91XXXXXXXXXX) or validates email."""
+    if not phone:
+        return ""
+    phone_str = phone.strip()
+    if "@" in phone_str:
+        return phone_str.lower()
+    digits = re.sub(r"\D", "", phone_str)
     if digits.startswith("91") and len(digits) == 12:
         return f"+{digits}"
     elif len(digits) == 10:
         return f"+91{digits}"
     elif len(digits) > 10:
         return f"+{digits}"
-    return phone.strip()
+    return phone_str
 
 
 def mask_phone(phone: str) -> str:
-    """Masks phone number for privacy display (+91 ****** 1234)."""
+    """Masks phone number or email for privacy display."""
     clean = sanitize_phone(phone)
+    if "@" in clean:
+        parts = clean.split("@")
+        name = parts[0]
+        domain = parts[1]
+        if len(name) > 2:
+            return f"{name[:2]}***{name[-1:]}@{domain}"
+        return f"***@{domain}"
     if len(clean) >= 10:
         last4 = clean[-4:]
         prefix = clean[:3] if clean.startswith("+91") else clean[:2]

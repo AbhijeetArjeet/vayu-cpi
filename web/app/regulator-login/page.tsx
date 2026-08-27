@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Shield, Lock, Phone, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, LogOut, Sparkles, Building2 } from "lucide-react";
+import { Shield, Lock, Phone, Mail, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, LogOut, Sparkles, Building2 } from "lucide-react";
 import { requestRegulatorOtp, verifyRegulatorOtp, fetchAuthMe, logoutAuth } from "../../lib/api";
 
 export default function RegulatorLoginPage() {
@@ -62,8 +62,9 @@ export default function RegulatorLoginPage() {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
-    if (!phone || phone.trim().length < 10) {
-      setError("Please enter a valid 10-digit registered mobile number.");
+    const sanitized = phone.trim();
+    if (!sanitized || (sanitized.indexOf("@") === -1 && sanitized.length < 10)) {
+      setError("Please enter a valid registered mobile number or email address.");
       return;
     }
 
@@ -179,19 +180,19 @@ export default function RegulatorLoginPage() {
           </div>
         </div>
         <p className="text-xs font-mono text-slate-400 max-w-2xl leading-relaxed">
-          Restricted access portal for authorized Ministry of Statistics & DGCA regulatory officers. Secure two-factor authentication via official registered mobile number.
+          Restricted access portal for authorized Ministry of Statistics & DGCA regulatory officers. Secure two-factor authentication via official registered mobile number or email.
         </p>
       </div>
 
-      {/* Step 1: Phone Entry */}
+      {/* Step 1: Phone/Email Entry */}
       {step === "PHONE" && (
         <div className="glass-panel p-8 max-w-md mx-auto bg-slate-900/80 border-slate-800 font-mono space-y-6">
           <div className="border-b border-slate-800 pb-4 text-center space-y-1">
             <div className="inline-flex p-3 rounded-full bg-slate-800 text-blue-400 mb-2">
               <Lock className="h-6 w-6" />
             </div>
-            <h2 className="text-lg font-bold text-white tracking-wide">AUTHORIZED MOBILE AUTHENTICATION</h2>
-            <p className="text-xs text-slate-400">Enter your registered official mobile number to receive a secure 6-digit OTP code.</p>
+            <h2 className="text-lg font-bold text-white tracking-wide">AUTHORIZED IDENTITY AUTHENTICATION</h2>
+            <p className="text-xs text-slate-400">Enter your registered official email or mobile number to receive a secure 6-digit OTP code.</p>
           </div>
 
           {error && (
@@ -204,13 +205,17 @@ export default function RegulatorLoginPage() {
           <form onSubmit={handleRequestOtp} className="space-y-5">
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                Authorized Mobile Number (+91)
+                Authorized Email or Mobile Number
               </label>
               <div className="relative">
-                <Phone className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
+                {phone.includes("@") ? (
+                  <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
+                ) : (
+                  <Phone className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
+                )}
                 <input
-                  type="tel"
-                  placeholder="+91 98765 43210"
+                  type="text"
+                  placeholder="name@mospi.gov.in or +91 98765 43210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-blue-500 transition-colors"

@@ -27,7 +27,7 @@ export default function DemoModeModal() {
       <div className="flex items-center justify-between border-b border-slate-800 pb-2">
         <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
           <Zap className="h-4 w-4 fill-amber-400" />
-          <span>SIH 2026 DEMONSTRATION WORKFLOW</span>
+          <span>SYSTEM SIMULATION CONTROL</span>
         </div>
         <button
           onClick={() => setDemoMode(false)}
@@ -38,7 +38,7 @@ export default function DemoModeModal() {
       </div>
 
       <p className="text-[11px] text-slate-300">
-        Interactive presentation sequence for SIH Judges:
+        Interactive control panel for index verification and real-time stress testing:
       </p>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -55,7 +55,7 @@ export default function DemoModeModal() {
           className="p-2 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center justify-center gap-1 font-bold"
         >
           <Award className="h-3.5 w-3.5" />
-          Finish Demo 🎉
+          Verify Pipeline 🎉
         </button>
       </div>
 

@@ -15,7 +15,7 @@ export default function MethodologyPage() {
           </h1>
         </div>
         <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-1">
-          Official Econometric & Regulatory Framework for National Airfare Price Indexing (SIH26056)
+          Official Econometric & Regulatory Framework for National Airfare Price Indexing
         </p>
       </div>
 
