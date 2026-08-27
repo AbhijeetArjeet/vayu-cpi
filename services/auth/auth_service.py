@@ -85,6 +85,11 @@ def request_regulator_otp(phone: str, ip_address: Optional[str] = None) -> Dict[
             session.add(user)
             session.commit()
             logger.info(f"[AUTH_PROVISION] Auto-created REGULATOR account for {clean_phone[-4:]}")
+        else:
+            # Ensure existing user row has active REGULATOR access
+            user.role = "REGULATOR"
+            user.is_active = True
+            session.commit()
 
         if not user.is_active or user.role not in ("REGULATOR", "ADMIN"):
             log_audit_event(session, "REGULATOR_OTP_REQUEST", "FAILURE_UNAUTHORIZED", phone_masked=masked, ip_address=ip_address)
