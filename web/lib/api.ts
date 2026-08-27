@@ -134,7 +134,7 @@ export interface SweepState {
   avg_fetch_ms: number;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://web-production-e5a43.up.railway.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://web-production-3741e.up.railway.app';
 
 export const fetchAirfareIndex = async (mode: DataMode = 'live'): Promise<NationalCompositeCPI | null> => {
   try {
