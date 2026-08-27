@@ -93,16 +93,19 @@ def on_startup() -> None:
     # Print safe runtime diagnostic summary (dependencies, OS, DB target, flags)
     print_startup_diagnostics(_logger)
 
-    # Init database (safe - handles missing TimescaleDB)
-    try:
-        from services.persistence.db import init_db
-        init_db()
-        _logger.info("Database initialized successfully")
-    except Exception as e:
-        _logger.warning(f"Database init skipped: {e}")
+    # Run DB init and scheduler asynchronously in a background thread so web server responds to Railway /health immediately (<10ms)
+    import threading
+    def _background_startup():
+        try:
+            from services.persistence.db import init_db
+            init_db()
+            _logger.info("Database initialized successfully")
+        except Exception as e:
+            _logger.warning(f"Database init skipped: {e}")
 
-    # Start background scraper (safe - won't crash the API if it fails)
-    _start_background_scheduler()
+        _start_background_scheduler()
+
+    threading.Thread(target=_background_startup, daemon=True).start()
 
 
 @app.on_event("shutdown")
