@@ -108,7 +108,7 @@ def compute_national_composite_cpi(
         route_results[route] = {}
         for horizon in HORIZON_ALPHA.keys():
             key = (origin, destination, horizon)
-            current_obs = obs_grouped.get(key, [])
+            current_obs = obs_grouped.get(key, [])[:300]
             current_prices = normalize(current_obs)
 
             if not current_prices:
