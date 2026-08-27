@@ -62,6 +62,7 @@ export default function Navbar() {
     { name: "MoSPI Portal", href: "/mospi", icon: BarChart3 },
     { name: "DGCA Matrix", href: "/dgca", icon: Shield },
     { name: "Traveller Forecast", href: "/forecast", icon: TrendingUp },
+    { name: "Methodology", href: "/methodology", icon: Zap },
   ];
 
   return (

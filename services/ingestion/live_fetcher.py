@@ -9,9 +9,8 @@ try:
     from primp import Client
     from fast_flights import FlightQuery, Passengers, create_query, get_flights
     from fast_flights.integrations import FetchIntegration
-    from fast_flights.parser import parse as parse_flights_html
 except Exception as _import_err:
-    Client = FlightQuery = Passengers = create_query = get_flights = FetchIntegration = parse_flights_html = None
+    Client = FlightQuery = Passengers = create_query = get_flights = FetchIntegration = None
     FAST_FLIGHTS_IMPORT_ERROR = str(_import_err)
 
 from core.schemas import RawFareRecord
@@ -117,7 +116,7 @@ def fetch_route_horizon_with_diagnostics(
     if get_flights is None:
         err_msg = f"fast-flights module not loaded: {FAST_FLIGHTS_IMPORT_ERROR}"
         logger.error(f"[FETCH_FAILED] {err_msg}")
-        diag["fetch_stage"].update({"status": "failed", "error": {"type": "ImportError", "message": err_msg}})
+        diag["fetch_stage"].update({"status": "FAILED", "error": {"type": "ImportError", "message": err_msg}})
         return diag
 
     start_time = time.perf_counter()
@@ -147,19 +146,20 @@ def fetch_route_horizon_with_diagnostics(
                 try:
                     result = get_flights(query_obj, integration=GoogleConsentFetchIntegration())
                 except IndexError as ie:
-                    logger.warning(f"[PARSE_FORMAT_WARN] Upstream offer format for {origin}->{destination} T-{horizon_days} could not be parsed: {ie}")
+                    logger.info(f"[NO_DATA_LAYOUT] Route {origin}->{destination} T-{horizon_days} layout has no unbundled price arrays ({ie}). Marking as NO_DATA.")
                     result = []
             elif isinstance(primary_err, IndexError):
-                logger.warning(f"[PARSE_FORMAT_WARN] Upstream offer format for {origin}->{destination} T-{horizon_days} could not be parsed: {primary_err}")
+                logger.info(f"[NO_DATA_LAYOUT] Route {origin}->{destination} T-{horizon_days} layout has no unbundled price arrays ({primary_err}). Marking as NO_DATA.")
                 result = []
             else:
                 raise primary_err
 
-
         elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
         flight_groups_cnt = len(result) if result else 0
+        
+        status_classification = "SUCCESS" if (result and len(result) > 0) else "NO_DATA"
         diag["fetch_stage"].update({
-            "status": "success" if result is not None else "empty_response",
+            "status": status_classification,
             "elapsed_ms": elapsed_ms,
             "flight_groups": flight_groups_cnt,
             "used_fallback": used_fallback,
@@ -168,7 +168,7 @@ def fetch_route_horizon_with_diagnostics(
         logger.info(
             f"\n[FETCH_RESPONSE]\n"
             f"  Route          : {origin} -> {destination} T-{horizon_days}\n"
-            f"  Status         : HTTP 200 (Success)\n"
+            f"  Status         : {status_classification}\n"
             f"  Elapsed        : {elapsed_ms} ms\n"
             f"  Used Fallback  : {used_fallback}\n"
             f"  Flight Groups  : {flight_groups_cnt}"
@@ -188,7 +188,7 @@ def fetch_route_horizon_with_diagnostics(
             f"  Traceback      :\n{tb_str}"
         )
         diag["fetch_stage"].update({
-            "status": "failed",
+            "status": "FAILED",
             "elapsed_ms": elapsed_ms,
             "used_fallback": used_fallback,
             "error": {"type": exc_type, "message": exc_msg, "traceback": tb_str},
@@ -196,8 +196,8 @@ def fetch_route_horizon_with_diagnostics(
         return diag
 
     if not result:
-        logger.warning(f"[PARSE_SKIPPED] Zero flight groups returned for {origin}->{destination} T-{horizon_days}")
-        diag["parse_stage"].update({"status": "completed", "records_generated": 0})
+        logger.info(f"[NO_DATA_RESULT] Zero flight groups returned for {origin}->{destination} T-{horizon_days}")
+        diag["parse_stage"].update({"status": "NO_DATA", "records_generated": 0})
         return diag
 
     # Parsing stage
@@ -256,7 +256,7 @@ def fetch_route_horizon_with_diagnostics(
             )
 
     diag["parse_stage"].update({
-        "status": "success",
+        "status": "SUCCESS" if records else "NO_DATA",
         "records_generated": len(records),
         "skipped_offers": skipped_cnt,
     })
@@ -281,14 +281,16 @@ def fetch_route_horizon(origin: str, destination: str, horizon_days: int) -> Lis
 
 def fetch_all_corridors_with_summary() -> Tuple[List[RawFareRecord], Dict[str, Any]]:
     """
-    Executes full sweep across all tracked corridors and horizons with isolated exception handling.
-    Ensures a single route failure does NOT abort remaining sweeps.
-    Returns: (all_records, summary_dict)
+    Executes full sweep across all tracked corridors and horizons with explicit classification:
+    - SUCCESS: Flight records fetched.
+    - NO_DATA: Query succeeded cleanly but zero flights matched.
+    - FAILED: Network / server error.
     """
     all_records: List[RawFareRecord] = []
     job_results: List[Dict[str, Any]] = []
     
     success_cnt = 0
+    nodata_cnt = 0
     failed_cnt = 0
     total_jobs = len(TRACKED_CORRIDORS) * len(TRACKED_HORIZONS)
     now = datetime.now()
@@ -306,14 +308,15 @@ def fetch_all_corridors_with_summary() -> Tuple[List[RawFareRecord], Dict[str, A
 
     for origin, destination in TRACKED_CORRIDORS:
         for horizon in TRACKED_HORIZONS:
-            # Isolated execution block per route-horizon pair
             try:
                 diag = fetch_route_horizon_with_diagnostics(origin, destination, horizon)
                 records = diag.get("records", [])
-                fetch_st = diag.get("fetch_stage", {}).get("status")
+                fetch_st = str(diag.get("fetch_stage", {}).get("status", "")).upper()
                 
-                if fetch_st in ("success", "completed", "empty_response"):
+                if fetch_st == "SUCCESS":
                     success_cnt += 1
+                elif fetch_st == "NO_DATA":
+                    nodata_cnt += 1
                 else:
                     failed_cnt += 1
 
@@ -338,26 +341,32 @@ def fetch_all_corridors_with_summary() -> Tuple[List[RawFareRecord], Dict[str, A
                 job_results.append({
                     "corridor": f"{origin}-{destination}",
                     "horizon": horizon,
-                    "status": "failed",
+                    "status": "FAILED",
                     "error": {"type": type(route_exc).__name__, "message": str(route_exc)},
                 })
+
+    coverage_pct = round(((success_cnt + nodata_cnt) / total_jobs) * 100, 1)
 
     summary = {
         "timestamp": now.isoformat(),
         "total_jobs": total_jobs,
         "success_jobs": success_cnt,
+        "nodata_jobs": nodata_cnt,
         "failed_jobs": failed_cnt,
+        "coverage_pct": coverage_pct,
         "total_records_generated": len(all_records),
         "job_details": job_results,
     }
 
     logger.info(
         f"\n=======================================================\n"
-        f"  VAYU SWEEP SUMMARY\n"
+        f"  VAYU SWEEP CLASSIFICATION SUMMARY\n"
         f"=======================================================\n"
         f"  SUCCESS : {success_cnt}\n"
+        f"  NO_DATA : {nodata_cnt}\n"
         f"  FAILED  : {failed_cnt}\n"
         f"  TOTAL   : {total_jobs}\n"
+        f"  COVERAGE: {coverage_pct}%\n"
         f"  RECORDS : {len(all_records)} total live fares generated\n"
         f"======================================================="
     )
