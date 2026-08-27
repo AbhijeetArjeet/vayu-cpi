@@ -52,6 +52,21 @@ class DynamicCORSMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(DynamicCORSMiddleware)
 
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Admin-Token, Cookie"
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=headers,
+    )
+
 # --- Routes ---
 from services.api.routes_cpi import router as cpi_router
 from services.api.routes_dgca import router as dgca_router

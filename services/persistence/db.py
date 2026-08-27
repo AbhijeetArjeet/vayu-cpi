@@ -175,26 +175,28 @@ def seed_initial_users() -> None:
     """Seeds authorized Regulator and Admin users if missing."""
     session = SessionLocal()
     try:
-        regulator_phone = os.getenv("REGULATOR_PHONE", "+919876543210").strip()
-        # Clean phone
         from services.auth.security import sanitize_phone
-        clean_reg_phone = sanitize_phone(regulator_phone)
+        env_phone = os.getenv("REGULATOR_PHONE", "").strip()
+        regulator_phones = ["+918252130309", "+919876543210"]
+        if env_phone:
+            regulator_phones.append(sanitize_phone(env_phone))
 
-        # Check if regulator exists
-        reg_user = session.query(User).filter(User.phone == clean_reg_phone).first()
-        if not reg_user:
-            reg_user = User(
-                id="usr_regulator_01",
-                name="Authorized Regulator",
-                email="regulator@mospi.gov.in",
-                phone=clean_reg_phone,
-                role="REGULATOR",
-                is_active=True,
-                created_at=datetime.now().isoformat(),
-                last_login_at=None
-            )
-            session.add(reg_user)
-            logger.info(f"[DB_SEED_USER] Created authorized REGULATOR user for phone {clean_reg_phone[-4:]}")
+        for idx, r_phone in enumerate(regulator_phones):
+            clean_reg_phone = sanitize_phone(r_phone)
+            reg_user = session.query(User).filter(User.phone == clean_reg_phone).first()
+            if not reg_user:
+                reg_user = User(
+                    id=f"usr_regulator_{idx+1}",
+                    name=f"Authorized Regulator ({clean_reg_phone[-4:]})",
+                    email="regulator@mospi.gov.in",
+                    phone=clean_reg_phone,
+                    role="REGULATOR",
+                    is_active=True,
+                    created_at=datetime.now().isoformat(),
+                    last_login_at=None
+                )
+                session.add(reg_user)
+                logger.info(f"[DB_SEED_USER] Created authorized REGULATOR user for phone {clean_reg_phone[-4:]}")
 
         # Check if default admin exists
         admin_phone = os.getenv("ADMIN_PHONE", "+919999999999").strip()
