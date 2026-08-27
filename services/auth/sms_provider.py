@@ -137,43 +137,57 @@ class Fast2SmsOtpProvider(OtpProvider):
         digits = re.sub(r"\D", "", phone or "")
         clean_phone = digits[-10:] if len(digits) >= 10 else digits
 
-        url = "https://www.fast2sms.com/dev/bulkV2"
-        headers = {
-            "authorization": self.api_key,
-            "Content-Type": "application/json"
-        }
-        payload = json.dumps({
-            "route": "otp",
-            "variables_values": str(otp),
-            "numbers": clean_phone
-        }).encode("utf-8")
+        # Fast2SMS: Try OTP route first, with automatic fallback to Quick SMS (route q)
+        for route_mode in ["otp", "q"]:
+            if route_mode == "otp":
+                body_dict = {
+                    "route": "otp",
+                    "variables_values": str(otp),
+                    "numbers": clean_phone
+                }
+            else:
+                body_dict = {
+                    "route": "q",
+                    "message": f"Your VAYU-CPI verification code is {otp}. Valid for {expires_minutes} minutes.",
+                    "language": "english",
+                    "flash": 0,
+                    "numbers": clean_phone
+                }
 
-        try:
-            req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                resp_text = resp.read().decode("utf-8")
-                resp_data = json.loads(resp_text)
-                if resp_data.get("return") is True:
-                    logger.info(f"[SMS_SUCCESS] OTP sent via Fast2SMS to {clean_phone[-4:]}")
-                    return {"success": True, "provider": "fast2sms", "error": None}
-                
-                messages = resp_data.get("message", ["Fast2SMS dispatch failed"])
-                err_msg = messages[0] if isinstance(messages, list) and messages else str(messages)
-                logger.error(f"[SMS_ERROR] Fast2SMS returned error: {err_msg}")
-                return {"success": False, "provider": "fast2sms", "error": err_msg}
-        except urllib.error.HTTPError as http_err:
-            err_body = http_err.read().decode("utf-8", errors="ignore")
-            logger.error(f"[SMS_HTTP_ERROR] Fast2SMS HTTP {http_err.code}: {err_body}")
+            payload = json.dumps(body_dict).encode("utf-8")
+
             try:
-                err_json = json.loads(err_body)
-                messages = err_json.get("message", [str(http_err)])
-                err_detail = messages[0] if isinstance(messages, list) and messages else str(messages)
-            except Exception:
-                err_detail = f"Fast2SMS HTTP {http_err.code}"
-            return {"success": False, "provider": "fast2sms", "error": err_detail}
-        except Exception as exc:
-            logger.error(f"[SMS_EXCEPTION] Fast2SMS exception: {exc}")
-            return {"success": False, "provider": "fast2sms", "error": f"SMS connection error: {str(exc)}"}
+                req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=12) as resp:
+                    resp_text = resp.read().decode("utf-8")
+                    resp_data = json.loads(resp_text)
+                    if resp_data.get("return") is True:
+                        logger.info(f"[SMS_SUCCESS] OTP sent via Fast2SMS ({route_mode}) to {clean_phone[-4:]}")
+                        return {"success": True, "provider": "fast2sms", "error": None}
+                    
+                    messages = resp_data.get("message", ["Fast2SMS dispatch failed"])
+                    err_msg = messages[0] if isinstance(messages, list) and messages else str(messages)
+                    logger.warning(f"[SMS_RETRY] Fast2SMS route '{route_mode}' notice: {err_msg}")
+                    # If this was otp route, loop will try route q next
+                    if route_mode == "q":
+                        return {"success": False, "provider": "fast2sms", "error": err_msg}
+            except urllib.error.HTTPError as http_err:
+                err_body = http_err.read().decode("utf-8", errors="ignore")
+                logger.error(f"[SMS_HTTP_ERROR] Fast2SMS HTTP {http_err.code} ({route_mode}): {err_body}")
+                if route_mode == "q":
+                    try:
+                        err_json = json.loads(err_body)
+                        messages = err_json.get("message", [str(http_err)])
+                        err_detail = messages[0] if isinstance(messages, list) and messages else str(messages)
+                    except Exception:
+                        err_detail = f"Fast2SMS HTTP {http_err.code}"
+                    return {"success": False, "provider": "fast2sms", "error": err_detail}
+            except Exception as exc:
+                logger.error(f"[SMS_EXCEPTION] Fast2SMS exception ({route_mode}): {exc}")
+                if route_mode == "q":
+                    return {"success": False, "provider": "fast2sms", "error": f"SMS connection error: {str(exc)}"}
+
+        return {"success": False, "provider": "fast2sms", "error": "Fast2SMS dispatch failed."}
 
 
 class MockTestOtpProvider(OtpProvider):
