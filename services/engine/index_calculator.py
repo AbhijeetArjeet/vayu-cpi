@@ -27,13 +27,18 @@ def compute_route_jevons_index(
     destination: str,
     horizon_days: int,
     calculation_date: date | None = None,
-    current_window_days: int = 1,
+    current_window_days: int = 30,
+    mode: str = "live",
 ) -> RouteJevonsIndex | None:
     calculation_date = calculation_date or date.today()
     now = datetime.combine(calculation_date, datetime.min.time())
 
     current_obs = fetch_observations(
-        origin, destination, horizon_days, since=now - timedelta(days=current_window_days)
+        origin,
+        destination,
+        horizon_days,
+        since=now - timedelta(days=current_window_days),
+        mode=mode,
     )
 
     current_prices = normalize(current_obs)
@@ -57,14 +62,22 @@ def compute_route_jevons_index(
         base_geom_mean=round(base_geom, 2),
         jevons_index=round(micro_index, 2),
         sample_size=len(current_prices),
+        data_mode=mode,
     )
 
 def compute_national_composite_cpi(
     calculation_date: date | None = None,
+    mode: str = "live",
 ) -> NationalCompositeCPI:
     calculation_date = calculation_date or date.today()
-    
     calc_date_str = calculation_date.isoformat()
+
+    source_label_map = {
+        "live": "LIVE OBSERVATIONS ONLY",
+        "historical": "HISTORICAL DATASET ONLY",
+        "combined": "LIVE + HISTORICAL COMBINED",
+    }
+    source_label = source_label_map.get(mode, "LIVE OBSERVATIONS")
 
     route_results = {}
     for origin, destination in ALL_CORRIDORS:
@@ -72,7 +85,7 @@ def compute_national_composite_cpi(
         route_results[route] = {}
         for horizon in HORIZON_ALPHA.keys():
             idx = compute_route_jevons_index(
-                origin, destination, horizon, calculation_date
+                origin, destination, horizon, calculation_date, mode=mode
             )
             if idx is not None:
                 route_results[route][horizon] = idx
@@ -95,6 +108,8 @@ def compute_national_composite_cpi(
             spot_sub_index=100.0,
             tracked_corridors=0,
             dgca_traffic_coverage_pct=0.0,
+            data_mode=mode,
+            source_label=source_label,
         )
 
     composite = sum(
@@ -123,4 +138,7 @@ def compute_national_composite_cpi(
         spot_sub_index=round(_sub_index(1), 2),
         tracked_corridors=len(route_blended),
         dgca_traffic_coverage_pct=round(covered_weight * 100, 1),
+        data_mode=mode,
+        source_label=source_label,
     )
+

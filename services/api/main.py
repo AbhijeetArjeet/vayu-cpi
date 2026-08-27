@@ -35,15 +35,19 @@ app.add_middleware(
 )
 
 # --- Routes ---
-try:
-    from services.api.routes_cpi import router as cpi_router
-    from services.api.routes_dgca import router as dgca_router
-    from services.api.routes_debug import router as debug_router
-    app.include_router(cpi_router)
-    app.include_router(dgca_router)
-    app.include_router(debug_router)
-except Exception as e:
-    _logger.warning(f"Could not load route modules: {e}")
+from services.api.routes_cpi import router as cpi_router
+from services.api.routes_dgca import router as dgca_router
+from services.api.routes_debug import router as debug_router
+from services.api.routes_data import router as data_router
+from services.api.routes_admin import router as admin_router
+
+app.include_router(cpi_router)
+app.include_router(dgca_router)
+app.include_router(debug_router)
+app.include_router(data_router)
+app.include_router(admin_router)
+
+
 
 
 # --- Startup ---

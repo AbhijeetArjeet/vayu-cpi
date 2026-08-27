@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import HeroMarketPulse from "../components/HeroMarketPulse";
 import IndiaRouteMap from "../components/IndiaRouteMap";
 import StressGauge from "../components/StressGauge";
@@ -11,6 +12,10 @@ import TopMovers from "../components/TopMovers";
 import FarePressureMatrix from "../components/FarePressureMatrix";
 import RouteComparison from "../components/RouteComparison";
 import RouteDrawer from "../components/RouteDrawer";
+import DataModeSelector from "../components/DataModeSelector";
+import DateRangeSelector, { DateRangeDays } from "../components/DateRangeSelector";
+import CoverageMetrics from "../components/CoverageMetrics";
+import CurrentVsHistoricalCard from "../components/CurrentVsHistoricalCard";
 import { HeroPulseSkeleton, MapSkeleton } from "../components/SkeletonLoaders";
 import { useVayuTheme } from "../components/ThemeContext";
 import { calculateMarketStatus, calculateCpiContributions } from "../lib/analytics";
@@ -19,35 +24,48 @@ import {
   fetchSurgeAlerts,
   fetchAllRoutesCurrent,
   fetchRouteConcentration,
+  fetchMarketCoverage,
+  DataMode,
   NationalCompositeCPI,
   SurgeAlert,
   RouteJevonsIndex,
   RouteConcentration,
+  MarketCoverageSummary,
 } from "../lib/api";
-import { Activity, ShieldAlert, Layers, ArrowUpRight } from "lucide-react";
+import { Activity, Layers } from "lucide-react";
 
-export default function CommandCenterOverview() {
+function CommandCenterContent() {
+  const searchParams = useSearchParams();
+  const initialMode = (searchParams?.get("mode") as DataMode) || "live";
+
   const { selectedCorridor, setSelectedCorridor } = useVayuTheme();
+  const [dataMode, setDataMode] = useState<DataMode>(initialMode);
+  const [dateRangeDays, setDateRangeDays] = useState<DateRangeDays>(30);
+
   const [cpiData, setCpiData] = useState<NationalCompositeCPI | null>(null);
   const [alerts, setAlerts] = useState<SurgeAlert[]>([]);
   const [routes, setRoutes] = useState<RouteJevonsIndex[]>([]);
   const [concentration, setConcentration] = useState<RouteConcentration | null>(null);
+  const [coverage, setCoverage] = useState<MarketCoverageSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [drawerRoute, setDrawerRoute] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadDashboardData() {
+      setLoading(true);
       try {
-        const [cpi, alertList, routeData, conc] = await Promise.all([
-          fetchAirfareIndex(),
+        const [cpi, alertList, routeData, conc, cov] = await Promise.all([
+          fetchAirfareIndex(dataMode),
           fetchSurgeAlerts(),
-          fetchAllRoutesCurrent(),
+          fetchAllRoutesCurrent(dataMode),
           fetchRouteConcentration(),
+          fetchMarketCoverage(),
         ]);
         setCpiData(cpi);
         setAlerts(alertList);
         setRoutes(routeData.routes);
         setConcentration(conc);
+        setCoverage(cov);
       } catch (err) {
         console.error("Error loading dashboard data:", err);
       } finally {
@@ -55,9 +73,9 @@ export default function CommandCenterOverview() {
       }
     }
     loadDashboardData();
-  }, []);
+  }, [dataMode, dateRangeDays]);
 
-  if (loading) {
+  if (loading && !cpiData) {
     return (
       <div className="space-y-8">
         <HeroPulseSkeleton />
@@ -88,26 +106,47 @@ export default function CommandCenterOverview() {
   ]);
 
   return (
-    <div className="space-y-8 font-sans">
-      {/* Market Status Banner */}
-      <div className={`p-4 rounded-xl border flex items-center justify-between font-mono text-xs ${marketStatus.color}`}>
-        <div className="flex items-center gap-2 font-bold">
-          <Activity className="h-4 w-4 animate-pulse" />
-          <span>MARKET STATUS: {marketStatus.status}</span>
+    <div className="space-y-6 font-sans">
+      {/* 1. Global Data Mode Selector (LIVE ONLY, HISTORICAL ONLY, LIVE + HISTORICAL) */}
+      <DataModeSelector
+        currentMode={dataMode}
+        onModeChange={setDataMode}
+        observationCount={
+          dataMode === "live"
+            ? coverage?.live_observation_count ?? 538
+            : dataMode === "historical"
+            ? coverage?.historical_observation_count ?? 360
+            : (coverage?.live_observation_count ?? 538) + (coverage?.historical_observation_count ?? 360)
+        }
+        lastUpdated="Updated 2 mins ago"
+        sourceLabel={cpiData?.source_label || "LIVE OBSERVATIONS"}
+      />
+
+      {/* 2. Global Date Range Selector Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className={`p-3 rounded-xl border flex items-center justify-between font-mono text-xs w-full sm:w-auto ${marketStatus.color}`}>
+          <div className="flex items-center gap-2 font-bold">
+            <Activity className="h-4 w-4 animate-pulse" />
+            <span>MARKET STATUS: {marketStatus.status}</span>
+          </div>
         </div>
-        <span className="hidden sm:inline opacity-80">{marketStatus.description}</span>
+
+        <DateRangeSelector selectedDays={dateRangeDays} onRangeChange={setDateRangeDays} />
       </div>
 
-      {/* 1. Hero Market Pulse Section */}
-      <HeroMarketPulse cpiData={cpiData} alerts={alerts} observationCount={538} />
+      {/* 3. Full India Market Coverage Counters */}
+      {coverage && <CoverageMetrics coverage={coverage} />}
 
-      {/* 2. Top Movers (Rising & Falling) */}
+      {/* 4. Hero Market Pulse Section */}
+      <HeroMarketPulse cpiData={cpiData} alerts={alerts} observationCount={coverage?.live_observation_count ?? 538} />
+
+      {/* 5. Top Movers (Rising & Falling) */}
       <TopMovers routes={routes} onSelectCorridor={(c) => { setSelectedCorridor(c); setDrawerRoute(c); }} />
 
-      {/* 3. Central Command Row: Interactive India Map + Stress Gauge */}
+      {/* 6. Central Command Row: Interactive India Map + Stress Gauge */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <IndiaRouteMap routes={routes} alerts={alerts} />
+          <IndiaRouteMap routes={routes} alerts={alerts} mode={dataMode} />
         </div>
 
         {/* Airfare Stress Score Ring Card */}
@@ -141,15 +180,22 @@ export default function CommandCenterOverview() {
         </div>
       </div>
 
-      {/* 4. Tracked Corridors Cards */}
+      {/* 7. Current Market vs Historical Baseline Comparison View */}
+      <CurrentVsHistoricalCard
+        origin={activeRouteCode.split("-")[0]}
+        destination={activeRouteCode.split("-")[1]}
+        currentFare={activeAlert?.current_fare ?? 6074}
+      />
+
+      {/* 8. Tracked Corridors Cards */}
       <RouteCards routes={routes} alerts={alerts} />
 
-      {/* 5. Contribution to National CPI Panel */}
+      {/* 9. Contribution to National CPI Panel */}
       <div className="glass-panel p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 font-mono text-xs">
           <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
             <Layers className="h-4 w-4 text-blue-500" />
-            <span>ROUTE CONTRIBUTION TO NATIONAL AIRFARE INFLATION</span>
+            <span>ROUTE CONTRIBUTION TO NATIONAL AIRFARE INFLATION ({cpiData?.data_mode?.toUpperCase()})</span>
           </div>
           <span className="text-slate-400">Total CPI Impact: +61.78 Pts</span>
         </div>
@@ -165,16 +211,16 @@ export default function CommandCenterOverview() {
         </div>
       </div>
 
-      {/* 6. Regulatory Risk Matrix (2x2) */}
+      {/* 10. Regulatory Risk Matrix */}
       <FarePressureMatrix routes={routes} onSelectCorridor={(c) => { setSelectedCorridor(c); setDrawerRoute(c); }} />
 
-      {/* 7. Multi-Corridor Side-by-Side Comparison */}
+      {/* 11. Multi-Corridor Side-by-Side Comparison */}
       <RouteComparison routes={routes} />
 
-      {/* 8. "Why is this happening?" Pressure Breakdown */}
+      {/* 12. "Why is this happening?" Pressure Breakdown */}
       <WhyIsThisHappening corridor={activeRouteCode} sigmaDeviation={sigmaDev} hhiScore={hhiScore} />
 
-      {/* 9. Forecast Trajectory & Book Now Recommendation */}
+      {/* 13. Forecast Trajectory & Book Now Recommendation */}
       <ForecastPanel corridor={activeRouteCode} currentFare={activeAlert?.current_fare ?? 6074} />
 
       {/* Reusable Route Intelligence Drawer */}
@@ -182,3 +228,12 @@ export default function CommandCenterOverview() {
     </div>
   );
 }
+
+export default function CommandCenterOverview() {
+  return (
+    <Suspense fallback={<HeroPulseSkeleton />}>
+      <CommandCenterContent />
+    </Suspense>
+  );
+}
+

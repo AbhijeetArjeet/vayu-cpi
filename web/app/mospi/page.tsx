@@ -119,7 +119,7 @@ export default function MospiPortal() {
             {sweeping ? "Scraping Live Fares..." : "Fetch Live Fares Now"}
           </button>
           <button
-            onClick={exportCsv}
+            onClick={() => exportCsv()}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-mono font-bold transition-all text-xs shadow-md"
           >
             <Download className="h-4 w-4" />

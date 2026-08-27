@@ -61,9 +61,12 @@ export default function Navbar() {
     { name: "Overview", href: "/", icon: Plane },
     { name: "MoSPI Portal", href: "/mospi", icon: BarChart3 },
     { name: "DGCA Matrix", href: "/dgca", icon: Shield },
-    { name: "Traveller Forecast", href: "/forecast", icon: TrendingUp },
-    { name: "Methodology", href: "/methodology", icon: Zap },
+    { name: "Forecast", href: "/forecast", icon: TrendingUp },
+    { name: "Historical", href: "/historical", icon: TrendingUp },
+    { name: "Datasets", href: "/data", icon: Zap },
+    { name: "Admin Portal", href: "/admin", icon: Shield },
   ];
+
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-slate-950/80 backdrop-blur-md transition-colors">

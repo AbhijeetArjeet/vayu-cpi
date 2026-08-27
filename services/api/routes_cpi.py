@@ -56,23 +56,26 @@ async def trigger_live_sweep():
 
 
 @router.get("/airfare-index")
-async def get_airfare_index(target_date: date | None = Query(None)):
-    """Returns the national composite airfare CPI (Base 2024 = 100) for
-    a single calculation date, defaulting to today."""
-    result = compute_national_composite_cpi(target_date)
+async def get_airfare_index(
+    target_date: date | None = Query(None),
+    mode: str = Query("live", description="live, historical, combined"),
+):
+    """Returns national composite CPI (Base 2024 = 100) recalculated for selected data mode."""
+    result = compute_national_composite_cpi(target_date, mode=mode)
     return result.model_dump(mode="json")
 
 
 @router.get("/airfare-index/series")
-async def get_airfare_index_series(days_back: int = Query(30, ge=1, le=365)):
-    """Returns the composite CPI as a daily time series for the last
-    `days_back` days -- what the MoSPI dashboard's line chart consumes.
-    """
+async def get_airfare_index_series(
+    days_back: int = Query(30, ge=1, le=365),
+    mode: str = Query("live", description="live, historical, combined"),
+):
+    """Returns composite CPI daily time series recalculated for selected data mode."""
     today = date.today()
     series = []
     for offset in range(days_back, -1, -1):
         d = today - timedelta(days=offset)
-        result = compute_national_composite_cpi(d)
+        result = compute_national_composite_cpi(d, mode=mode)
         series.append(result.model_dump(mode="json"))
     return series
 
@@ -83,38 +86,44 @@ async def get_route_index(
     destination: str = Query(..., min_length=3, max_length=3),
     horizon_days: int = Query(..., description="30, 7, or 1"),
     target_date: date | None = Query(None),
+    mode: str = Query("live", description="live, historical, combined"),
 ):
-    """Returns the Jevons micro-index for a single route/horizon pair."""
+    """Returns the Jevons micro-index for a single route/horizon pair for selected data mode."""
     result = compute_route_jevons_index(
-        origin.upper(), destination.upper(), horizon_days, target_date
+        origin.upper(), destination.upper(), horizon_days, target_date, mode=mode
     )
     if result is None:
         return {
             "error": "no_data",
             "message": (
                 f"No computable index yet for {origin.upper()}-"
-                f"{destination.upper()} T-{horizon_days} -- base-period "
-                "or current-period sample is empty."
+                f"{destination.upper()} T-{horizon_days} in '{mode}' mode."
             ),
         }
     return result.model_dump(mode="json")
 
 
 @router.get("/routes/all-current")
-async def get_all_routes_current(target_date: date | None = Query(None)):
-    """Returns every tracked route x horizon micro-index for one date."""
+async def get_all_routes_current(
+    target_date: date | None = Query(None),
+    mode: str = Query("live", description="live, historical, combined"),
+):
+    """Returns every tracked route x horizon micro-index for one date in selected data mode."""
     results = []
     for origin, destination in ALL_CORRIDORS:
         for horizon in HORIZON_ALPHA.keys():
-            idx = compute_route_jevons_index(origin, destination, horizon, target_date)
+            idx = compute_route_jevons_index(origin, destination, horizon, target_date, mode=mode)
             if idx is not None:
                 results.append(idx.model_dump(mode="json"))
-    return {"count": len(results), "routes": results}
+    return {"count": len(results), "mode": mode, "routes": results}
 
 
 @router.get("/export/csv")
-async def export_csv(days_back: int = Query(30, ge=1, le=365)):
-    """Streams a MoSPI-compatible CSV dump of the composite index time series."""
+async def export_csv(
+    days_back: int = Query(30, ge=1, le=365),
+    mode: str = Query("live", description="live, historical, combined"),
+):
+    """Streams a MoSPI-compatible CSV dump of the composite index time series for selected data mode."""
     today = date.today()
     buffer = io.StringIO()
     writer = csv.writer(buffer)
@@ -126,11 +135,13 @@ async def export_csv(days_back: int = Query(30, ge=1, le=365)):
             "spot_sub_index",
             "tracked_corridors",
             "dgca_traffic_coverage_pct",
+            "data_mode",
+            "source_label",
         ]
     )
     for offset in range(days_back, -1, -1):
         d = today - timedelta(days=offset)
-        result = compute_national_composite_cpi(d)
+        result = compute_national_composite_cpi(d, mode=mode)
         writer.writerow(
             [
                 result.calculation_date,
@@ -139,11 +150,14 @@ async def export_csv(days_back: int = Query(30, ge=1, le=365)):
                 result.spot_sub_index,
                 result.tracked_corridors,
                 result.dgca_traffic_coverage_pct,
+                result.data_mode,
+                result.source_label,
             ]
         )
     buffer.seek(0)
     return StreamingResponse(
         buffer,
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=vayu_cpi_export.csv"},
+        headers={"Content-Disposition": f"attachment; filename=vayu_cpi_export_{mode}.csv"},
     )
+
