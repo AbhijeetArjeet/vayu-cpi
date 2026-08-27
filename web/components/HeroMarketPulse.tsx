@@ -15,20 +15,22 @@ interface HeroMarketPulseProps {
 export default function HeroMarketPulse({
   cpiData,
   alerts,
-  observationCount = 538,
+  observationCount = 0,
 }: HeroMarketPulseProps) {
   const { selectedCorridor, setSelectedCorridor, demoMode } = useVayuTheme();
 
   // Production Values derived from backend API / CPI calculation engine
+  const hasLiveObs = Boolean(cpiData && cpiData.tracked_corridors > 0);
   const compositeVal = demoMode ? 161.78 : (cpiData?.composite_index ?? 100.0);
   const advanceVal = demoMode ? 145.20 : (cpiData?.advance_sub_index ?? 100.0);
   const spotVal = demoMode ? 182.40 : (cpiData?.spot_sub_index ?? 100.0);
-  const coveragePct = demoMode ? 91.0 : (cpiData?.dgca_traffic_coverage_pct ?? 100.0);
+  const coveragePct = demoMode ? 91.0 : (cpiData?.dgca_traffic_coverage_pct ?? 0.0);
   const activeAlertsCnt = alerts.length;
-  const trackedCorridorsCnt = cpiData?.tracked_corridors ?? 6;
+  const trackedCorridorsCnt = cpiData?.tracked_corridors ?? 0;
 
   // Calculate 30D Change from Base (100)
   const cpiDeltaPct = Number((((compositeVal - 100) / 100) * 100).toFixed(1));
+
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950/40 p-6 md:p-8 text-white shadow-2xl">
@@ -82,18 +84,24 @@ export default function HeroMarketPulse({
                 decimals={2}
                 className="text-4xl md:text-5xl font-black tracking-tight text-white font-mono"
               />
-              <div
-                className={`flex items-center gap-1 text-sm font-bold px-2.5 py-1 rounded-full border ${
-                  cpiDeltaPct >= 0
-                    ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
-                    : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                }`}
-              >
-                {cpiDeltaPct >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                <span>
-                  {cpiDeltaPct >= 0 ? `+${cpiDeltaPct}%` : `${cpiDeltaPct}%`} vs 2024 Base
-                </span>
-              </div>
+              {!hasLiveObs && !demoMode ? (
+                <div className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border text-amber-400 bg-amber-500/10 border-amber-500/20">
+                  <span>BASELINE / NO LIVE DATA</span>
+                </div>
+              ) : (
+                <div
+                  className={`flex items-center gap-1 text-sm font-bold px-2.5 py-1 rounded-full border ${
+                    cpiDeltaPct >= 0
+                      ? "text-rose-400 bg-rose-500/10 border-rose-500/20"
+                      : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                  }`}
+                >
+                  {cpiDeltaPct >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                  <span>
+                    {cpiDeltaPct >= 0 ? `+${cpiDeltaPct}%` : `${cpiDeltaPct}%`} vs 2024 Base
+                  </span>
+                </div>
+              )}
             </div>
             <p className="text-xs text-slate-400">
               Weighted Geometric Jevons Index across {trackedCorridorsCnt} Primary Trunk Corridors
