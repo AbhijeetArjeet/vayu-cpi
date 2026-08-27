@@ -252,38 +252,56 @@ export const fetchHistoricalComparison = async (origin: string, dest: string, cu
   }
 };
 
-export const validateImportPayload = async (dataset_name: string, source_type: string, records: any[]): Promise<ImportValidationReport> => {
+export const adminLogin = async (password: string) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/v1/admin/validate-import`, {
-      dataset_name,
-      source_type,
-      records
-    });
+    const response = await axios.post(`${API_BASE_URL}/api/v1/admin/auth/login`, { password });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || "Admin password verification failed.");
+  }
+};
+
+export const adminVerifyOtp = async (otp: string) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/v1/admin/auth/verify-otp`, { otp });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || "OTP verification failed.");
+  }
+};
+
+export const validateImportPayload = async (dataset_name: string, source_type: string, records: any[], token?: string): Promise<ImportValidationReport> => {
+  try {
+    const headers = token ? { 'X-Admin-Token': token } : {};
+    const response = await axios.post(
+      `${API_BASE_URL}/api/v1/admin/validate-import`,
+      { dataset_name, source_type, records },
+      { headers }
+    );
     return response.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || "Validation request failed.");
   }
 };
 
-export const confirmImportPayload = async (dataset_id: string, dataset_name: string, source_type: string, dataset_version: string, description: string, records: any[]) => {
+export const confirmImportPayload = async (dataset_id: string, dataset_name: string, source_type: string, dataset_version: string, description: string, records: any[], token?: string) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/v1/admin/confirm-import`, {
-      dataset_id,
-      dataset_name,
-      source_type,
-      dataset_version,
-      description,
-      records
-    });
+    const headers = token ? { 'X-Admin-Token': token } : {};
+    const response = await axios.post(
+      `${API_BASE_URL}/api/v1/admin/confirm-import`,
+      { dataset_id, dataset_name, source_type, dataset_version, description, records },
+      { headers }
+    );
     return response.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || "Import confirmation failed.");
   }
 };
 
-export const fetchSweepStatus = async (): Promise<any | null> => {
+export const fetchSweepStatus = async (token?: string): Promise<any | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/admin/sweep-status`);
+    const headers = token ? { 'X-Admin-Token': token } : {};
+    const response = await axios.get(`${API_BASE_URL}/api/v1/admin/sweep-status`, { headers });
     return response.data;
   } catch (error) {
     console.error("[API_ERROR] fetchSweepStatus failed:", error);
@@ -291,10 +309,11 @@ export const fetchSweepStatus = async (): Promise<any | null> => {
   }
 };
 
-export const triggerAdminSweep = async (frequency_minutes?: number) => {
+export const triggerAdminSweep = async (frequency_minutes?: number, token?: string) => {
   try {
+    const headers = token ? { 'X-Admin-Token': token } : {};
     const url = frequency_minutes ? `${API_BASE_URL}/api/v1/admin/trigger-sweep?frequency_minutes=${frequency_minutes}` : `${API_BASE_URL}/api/v1/admin/trigger-sweep`;
-    const response = await axios.post(url);
+    const response = await axios.post(url, {}, { headers });
     return response.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || "Sweep execution failed.");
@@ -306,3 +325,4 @@ export const triggerLiveSweep = triggerAdminSweep;
 export const exportCsv = (mode: DataMode = 'live') => {
   window.open(`${API_BASE_URL}/api/v1/cpi/export/csv?mode=${mode}`, '_blank');
 };
+

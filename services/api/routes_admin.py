@@ -11,7 +11,11 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Body, HTTPException, Query
 
 from core.schemas import ImportValidationReport, RawFareRecord
-from services.api.admin_security import verify_admin_access
+from services.api.admin_security import (
+    verify_admin_access,
+    generate_admin_otp,
+    verify_admin_otp,
+)
 from services.engine.historical_engine import validate_historical_dataset
 from services.persistence.db import (
     SessionLocal,
@@ -36,6 +40,19 @@ SWEEP_STATE = {
     "total_observations": 538,
     "avg_fetch_ms": 420,
 }
+
+
+@router.post("/auth/login")
+async def admin_login(password: str = Body(..., embed=True)):
+    """Stage 1: Validates admin password and generates a 6-digit OTP verification code."""
+    return generate_admin_otp(password)
+
+
+@router.post("/auth/verify-otp")
+async def admin_verify_otp(otp: str = Body(..., embed=True)):
+    """Stage 2: Verifies 6-digit OTP code and returns an admin session token."""
+    return verify_admin_otp(otp)
+
 
 
 @router.get("/sweep-status", dependencies=[Depends(verify_admin_access)])
