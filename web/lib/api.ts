@@ -326,3 +326,101 @@ export const exportCsv = (mode: DataMode = 'live') => {
   window.open(`${API_BASE_URL}/api/v1/cpi/export/csv?mode=${mode}`, '_blank');
 };
 
+// Helper for session token stored in localStorage (fallback if cookie blocked)
+const getAuthHeaders = () => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('vayu_auth_token');
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+  }
+  return {};
+};
+
+export const requestRegulatorOtp = async (phone: string) => {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/v1/auth/regulator/request-otp`,
+      { phone },
+      { withCredentials: true }
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || "Unable to request OTP verification code.");
+  }
+};
+
+export const verifyRegulatorOtp = async (phone: string, otp: string) => {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/v1/auth/regulator/verify-otp`,
+      { phone, otp },
+      { withCredentials: true }
+    );
+    if (response.data?.token && typeof window !== 'undefined') {
+      localStorage.setItem('vayu_auth_token', response.data.token);
+      if (response.data?.user) {
+        localStorage.setItem('vayu_user_profile', JSON.stringify(response.data.user));
+      }
+    }
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || "OTP verification failed.");
+  }
+};
+
+export const logoutAuth = async () => {
+  try {
+    const headers = getAuthHeaders();
+    await axios.post(`${API_BASE_URL}/api/v1/auth/logout`, {}, { headers, withCredentials: true });
+  } catch (error) {
+    console.error("[API_ERROR] logoutAuth failed:", error);
+  } finally {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('vayu_auth_token');
+      localStorage.removeItem('vayu_user_profile');
+    }
+  }
+};
+
+export const fetchAuthMe = async () => {
+  try {
+    const headers = getAuthHeaders();
+    const response = await axios.get(`${API_BASE_URL}/api/v1/auth/me`, { headers, withCredentials: true });
+    return response.data;
+  } catch (error) {
+    return null;
+  }
+};
+
+export const fetchAdminUsers = async () => {
+  try {
+    const headers = getAuthHeaders();
+    const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users`, { headers, withCredentials: true });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || "Failed to fetch user list.");
+  }
+};
+
+export const createAdminUser = async (data: { name: string; phone: string; email?: string; role: string }) => {
+  try {
+    const headers = getAuthHeaders();
+    const response = await axios.post(`${API_BASE_URL}/api/v1/admin/users`, data, { headers, withCredentials: true });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || "Failed to register new user.");
+  }
+};
+
+export const updateAdminUser = async (userId: string, data: { name?: string; phone?: string; email?: string; role?: string; is_active?: boolean }) => {
+  try {
+    const headers = getAuthHeaders();
+    const response = await axios.patch(`${API_BASE_URL}/api/v1/admin/users/${userId}`, data, { headers, withCredentials: true });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.detail || "Failed to update user.");
+  }
+};
+
+

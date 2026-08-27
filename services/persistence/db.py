@@ -95,6 +95,47 @@ class DatasetRegistry(Base):
     status = Column(String(32), default="ACTIVE", nullable=False)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String(64), primary_key=True)
+    name = Column(String(128), nullable=False)
+    email = Column(String(128), nullable=True)
+    phone = Column(String(32), nullable=False, unique=True, index=True)
+    role = Column(String(32), nullable=False, default="USER")  # USER, REGULATOR, ADMIN
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(String, nullable=False)
+    last_login_at = Column(String, nullable=True)
+
+
+class OtpChallenge(Base):
+    __tablename__ = "otp_challenges"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String(64), nullable=False, index=True)
+    phone = Column(String(32), nullable=False, index=True)
+    phone_last4 = Column(String(4), nullable=False)
+    challenge_hash = Column(String(128), nullable=False)
+    created_at = Column(String, nullable=False)
+    expires_at = Column(Float, nullable=False, index=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    max_attempts = Column(Integer, nullable=False, default=5)
+    verified_at = Column(String, nullable=True)
+    status = Column(String(32), nullable=False, default="PENDING")  # PENDING, VERIFIED, EXPIRED, LOCKED
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String(64), nullable=True)
+    phone_masked = Column(String(32), nullable=True)
+    action = Column(String(64), nullable=False, index=True)
+    result = Column(String(32), nullable=False)
+    ip_address = Column(String(64), nullable=True)
+    timestamp = Column(String, nullable=False, index=True)
+
+
 def init_db() -> None:
     """Creates tables, migrates missing columns, seeds historical baseline if missing, and configures TimescaleDB."""
     try:
@@ -124,9 +165,61 @@ def init_db() -> None:
 
 
         seed_authentic_historical_data()
+        seed_initial_users()
     except Exception as e:
         logger.error(f"[DB_INIT_ERROR] Table creation/migration failed: {e}\n{traceback.format_exc()}")
         return
+
+
+def seed_initial_users() -> None:
+    """Seeds authorized Regulator and Admin users if missing."""
+    session = SessionLocal()
+    try:
+        regulator_phone = os.getenv("REGULATOR_PHONE", "+919876543210").strip()
+        # Clean phone
+        from services.auth.security import sanitize_phone
+        clean_reg_phone = sanitize_phone(regulator_phone)
+
+        # Check if regulator exists
+        reg_user = session.query(User).filter(User.phone == clean_reg_phone).first()
+        if not reg_user:
+            reg_user = User(
+                id="usr_regulator_01",
+                name="Authorized Regulator",
+                email="regulator@mospi.gov.in",
+                phone=clean_reg_phone,
+                role="REGULATOR",
+                is_active=True,
+                created_at=datetime.now().isoformat(),
+                last_login_at=None
+            )
+            session.add(reg_user)
+            logger.info(f"[DB_SEED_USER] Created authorized REGULATOR user for phone {clean_reg_phone[-4:]}")
+
+        # Check if default admin exists
+        admin_phone = os.getenv("ADMIN_PHONE", "+919999999999").strip()
+        clean_admin_phone = sanitize_phone(admin_phone)
+        admin_user = session.query(User).filter(User.phone == clean_admin_phone).first()
+        if not admin_user:
+            admin_user = User(
+                id="usr_admin_01",
+                name="System Administrator",
+                email="admin@vayu.gov.in",
+                phone=clean_admin_phone,
+                role="ADMIN",
+                is_active=True,
+                created_at=datetime.now().isoformat(),
+                last_login_at=None
+            )
+            session.add(admin_user)
+            logger.info(f"[DB_SEED_USER] Created default ADMIN user for phone {clean_admin_phone[-4:]}")
+
+        session.commit()
+    except Exception as exc:
+        session.rollback()
+        logger.error(f"[DB_SEED_USERS_ERROR] Failed seeding initial users: {exc}")
+    finally:
+        session.close()
 
     try:
         with engine.connect() as conn:

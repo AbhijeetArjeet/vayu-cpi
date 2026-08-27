@@ -14,14 +14,17 @@ import {
   Zap,
   RefreshCw,
   BookOpen,
+  Lock,
+  UserCheck,
 } from "lucide-react";
-import { triggerLiveSweep, fetchMarketCoverage } from "../lib/api";
+import { triggerLiveSweep, fetchMarketCoverage, fetchAuthMe } from "../lib/api";
 
 export default function Navbar() {
   const pathname = usePathname();
   const { theme, toggleTheme, demoMode, setDemoMode, lastUpdated, setLastUpdated } = useVayuTheme();
   const [isSweeping, setIsSweeping] = useState(false);
   const [minutesAgo, setMinutesAgo] = useState<number | null>(null);
+  const [authUser, setAuthUser] = useState<any>(null);
 
   useEffect(() => {
     // Fetch real market coverage to get actual ingestion timestamp
@@ -30,6 +33,13 @@ export default function Navbar() {
         setMinutesAgo(0);
       } else {
         setMinutesAgo(null);
+      }
+    });
+
+    // Check auth status
+    fetchAuthMe().then((res) => {
+      if (res && res.authenticated) {
+        setAuthUser(res.user);
       }
     });
   }, []);
@@ -75,6 +85,7 @@ export default function Navbar() {
     { name: "Historical", href: "/historical", icon: TrendingUp },
     { name: "Datasets", href: "/data", icon: Zap },
     { name: "Methodology", href: "/methodology", icon: BookOpen },
+    { name: "Regulator Access", href: "/regulator-login", icon: Lock },
     { name: "Admin Portal", href: "/admin", icon: Shield },
   ];
 
