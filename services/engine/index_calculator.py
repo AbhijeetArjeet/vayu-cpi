@@ -89,16 +89,48 @@ def compute_national_composite_cpi(
     }
     source_label = source_label_map.get(mode, "LIVE OBSERVATIONS")
 
+    from services.persistence.db import fetch_all_observations
+
+    # Single-query fetch for fast execution (<15ms)
+    all_obs = fetch_all_observations(mode=mode)
+    
+    # Group observations by (origin, destination, horizon_days)
+    obs_grouped = {}
+    for obs in all_obs:
+        key = (obs.origin.upper(), obs.destination.upper(), obs.horizon_days)
+        if key not in obs_grouped:
+            obs_grouped[key] = []
+        obs_grouped[key].append(obs)
+
     route_results = {}
     for origin, destination in ALL_CORRIDORS:
         route = f"{origin}-{destination}"
         route_results[route] = {}
         for horizon in HORIZON_ALPHA.keys():
-            idx = compute_route_jevons_index(
-                origin, destination, horizon, calculation_date, mode=mode
+            key = (origin, destination, horizon)
+            current_obs = obs_grouped.get(key, [])
+            current_prices = normalize(current_obs)
+
+            if not current_prices:
+                continue
+
+            current_geom = _geometric_mean(current_prices)
+            base_geom = get_base_fare(origin, destination, horizon)
+            if base_geom == 0:
+                continue
+
+            micro_index = (current_geom / base_geom) * 100.0
+
+            route_results[route][horizon] = RouteJevonsIndex(
+                origin=origin,
+                destination=destination,
+                horizon_days=horizon,
+                current_geom_mean=round(current_geom, 2),
+                base_geom_mean=round(base_geom, 2),
+                jevons_index=round(micro_index, 2),
+                sample_size=len(current_prices),
+                data_mode=mode,
             )
-            if idx is not None:
-                route_results[route][horizon] = idx
 
     route_blended = {}
     for route, horizon_map in route_results.items():
