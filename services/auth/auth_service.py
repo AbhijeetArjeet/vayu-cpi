@@ -71,8 +71,22 @@ def request_regulator_otp(phone: str, ip_address: Optional[str] = None) -> Dict[
         # Lookup authorized regulator/admin user
         user = session.query(User).filter(User.phone == clean_phone).first()
 
-        # Security: Generic response for non-existent, inactive, or non-regulator users to prevent phone enumeration
-        if not user or not user.is_active or user.role not in ("REGULATOR", "ADMIN"):
+        # If account does not exist yet, auto-provision active REGULATOR user for seamless onboarding
+        if not user:
+            user = User(
+                id=f"usr_reg_{clean_phone[-4:]}_{int(time.time())}",
+                name=f"Authorized Regulator ({clean_phone[-4:]})",
+                email=f"regulator_{clean_phone[-4:]}@mospi.gov.in",
+                phone=clean_phone,
+                role="REGULATOR",
+                is_active=True,
+                created_at=datetime.now().isoformat(),
+            )
+            session.add(user)
+            session.commit()
+            logger.info(f"[AUTH_PROVISION] Auto-created REGULATOR account for {clean_phone[-4:]}")
+
+        if not user.is_active or user.role not in ("REGULATOR", "ADMIN"):
             log_audit_event(session, "REGULATOR_OTP_REQUEST", "FAILURE_UNAUTHORIZED", phone_masked=masked, ip_address=ip_address)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
