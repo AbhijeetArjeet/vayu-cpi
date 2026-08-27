@@ -9,3 +9,5 @@ COPY core/ core/
 COPY services/ services/
 
 ENV PYTHONUNBUFFERED=1
+
+CMD ["sh", "-c", "uvicorn services.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
