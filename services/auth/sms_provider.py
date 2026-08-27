@@ -124,39 +124,54 @@ class Fast2SmsOtpProvider(OtpProvider):
     """Fast2SMS Provider Integration for India."""
 
     def __init__(self):
-        self.api_key = os.getenv("FAST2SMS_API_KEY", "")
+        self.api_key = os.getenv("FAST2SMS_API_KEY", "").strip()
 
     def send_otp(self, phone: str, otp: str, expires_minutes: int = 5) -> Dict[str, Any]:
         if not self.api_key:
             logger.error("[SMS_ERROR] FAST2SMS_API_KEY environment variable is not configured.")
-            return {"success": False, "provider": "fast2sms", "error": "SMS provider credentials missing."}
+            return {"success": False, "provider": "fast2sms", "error": "FAST2SMS_API_KEY is not configured on server."}
 
-        clean_phone = phone.replace("+91", "").replace("+", "").replace(" ", "").strip()
+        # Fast2SMS requires 10-digit Indian mobile number
+        digits = re.sub(r"\D", "", phone or "")
+        clean_phone = digits[-10:] if len(digits) >= 10 else digits
+
         url = "https://www.fast2sms.com/dev/bulkV2"
-        payload = urllib.parse.urlencode({
-            "variables_values": otp,
+        headers = {
+            "authorization": self.api_key,
+            "Content-Type": "application/json"
+        }
+        payload = json.dumps({
             "route": "otp",
+            "variables_values": str(otp),
             "numbers": clean_phone
         }).encode("utf-8")
 
-        headers = {
-            "authorization": self.api_key,
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-
         try:
             req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                resp_data = json.loads(resp.read().decode("utf-8"))
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                resp_text = resp.read().decode("utf-8")
+                resp_data = json.loads(resp_text)
                 if resp_data.get("return") is True:
                     logger.info(f"[SMS_SUCCESS] OTP sent via Fast2SMS to {clean_phone[-4:]}")
                     return {"success": True, "provider": "fast2sms", "error": None}
-                err_msg = resp_data.get("message", ["Fast2SMS dispatch failed"])[0]
-                logger.error(f"[SMS_ERROR] Fast2SMS error: {err_msg}")
+                
+                messages = resp_data.get("message", ["Fast2SMS dispatch failed"])
+                err_msg = messages[0] if isinstance(messages, list) and messages else str(messages)
+                logger.error(f"[SMS_ERROR] Fast2SMS returned error: {err_msg}")
                 return {"success": False, "provider": "fast2sms", "error": err_msg}
+        except urllib.error.HTTPError as http_err:
+            err_body = http_err.read().decode("utf-8", errors="ignore")
+            logger.error(f"[SMS_HTTP_ERROR] Fast2SMS HTTP {http_err.code}: {err_body}")
+            try:
+                err_json = json.loads(err_body)
+                messages = err_json.get("message", [str(http_err)])
+                err_detail = messages[0] if isinstance(messages, list) and messages else str(messages)
+            except Exception:
+                err_detail = f"Fast2SMS HTTP {http_err.code}"
+            return {"success": False, "provider": "fast2sms", "error": err_detail}
         except Exception as exc:
             logger.error(f"[SMS_EXCEPTION] Fast2SMS exception: {exc}")
-            return {"success": False, "provider": "fast2sms", "error": "Fast2SMS dispatch failed."}
+            return {"success": False, "provider": "fast2sms", "error": f"SMS connection error: {str(exc)}"}
 
 
 class MockTestOtpProvider(OtpProvider):
@@ -188,7 +203,7 @@ def get_otp_provider() -> OtpProvider:
     if _SINGLETON_PROVIDER is not None:
         return _SINGLETON_PROVIDER
 
-    provider_name = os.getenv("OTP_PROVIDER", "test").lower()
+    provider_name = os.getenv("OTP_PROVIDER", "fast2sms").lower()
     env_name = os.getenv("ENVIRONMENT", "development").lower()
     is_railway = os.getenv("RAILWAY_ENVIRONMENT") is not None
 
@@ -198,24 +213,13 @@ def get_otp_provider() -> OtpProvider:
         _SINGLETON_PROVIDER = TwilioOtpProvider()
     elif provider_name == "fast2sms":
         _SINGLETON_PROVIDER = Fast2SmsOtpProvider()
-    elif provider_name == "test" or env_name == "test":
+    elif provider_name == "test":
         if env_name == "production" or is_railway:
-            logger.warning("[SMS_WARN] OTP_PROVIDER=test set in production. Defaulting to Msg91OtpProvider.")
-            _SINGLETON_PROVIDER = Msg91OtpProvider()
+            logger.warning("[SMS_WARN] OTP_PROVIDER=test set in production. Defaulting to Fast2SmsOtpProvider.")
+            _SINGLETON_PROVIDER = Fast2SmsOtpProvider()
         else:
             _SINGLETON_PROVIDER = MockTestOtpProvider()
     else:
-        if os.getenv("MSG91_API_KEY"):
-            _SINGLETON_PROVIDER = Msg91OtpProvider()
-        elif os.getenv("TWILIO_ACCOUNT_SID"):
-            _SINGLETON_PROVIDER = TwilioOtpProvider()
-        elif os.getenv("FAST2SMS_API_KEY"):
-            _SINGLETON_PROVIDER = Fast2SmsOtpProvider()
-        
-        if env_name == "production" or is_railway:
-            logger.warning("[SMS_WARN] No SMS provider configured. Defaulting to Msg91OtpProvider.")
-            _SINGLETON_PROVIDER = Msg91OtpProvider()
-        else:
-            _SINGLETON_PROVIDER = MockTestOtpProvider()
+        _SINGLETON_PROVIDER = Fast2SmsOtpProvider()
 
     return _SINGLETON_PROVIDER

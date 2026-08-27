@@ -165,10 +165,11 @@ def request_regulator_otp(phone: str, ip_address: Optional[str] = None) -> Dict[
         if not sms_result.get("success"):
             new_challenge.status = "EXPIRED"
             session.commit()
+            err_reason = sms_result.get("error", "SMS dispatch failed")
             log_audit_event(session, "REGULATOR_OTP_REQUEST", "FAILURE_PROVIDER_ERROR", user_id=user.id, phone_masked=masked, ip_address=ip_address)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Unable to send verification code via SMS provider. Please try again later.",
+                detail=f"SMS Gateway: {err_reason}",
             )
 
         log_audit_event(session, "REGULATOR_OTP_REQUEST", "SUCCESS", user_id=user.id, phone_masked=masked, ip_address=ip_address)
