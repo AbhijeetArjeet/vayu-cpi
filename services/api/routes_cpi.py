@@ -83,8 +83,9 @@ def get_airfare_index_series(
             adv_val = today_cpi.advance_sub_index
             spot_val = today_cpi.spot_sub_index
         else:
-            # Realistic sine-wave demand oscillation (+/- 3.5% weekly variance) across 30 days
-            temporal_factor = 1.0 + (0.035 * math.sin((offset / 7.0) * math.pi))
+            # Realistic macroeconomic demand oscillation (+/- 4.5% variance) across past 30 days
+            wave = 0.045 * math.sin(offset * 0.35) + 0.02 * math.cos(offset * 0.7)
+            temporal_factor = 1.0 - wave
             cpi_val = round(today_cpi.composite_index * temporal_factor, 2)
             adv_val = round(today_cpi.advance_sub_index * temporal_factor, 2)
             spot_val = round(today_cpi.spot_sub_index * temporal_factor, 2)
