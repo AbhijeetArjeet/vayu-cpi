@@ -14,25 +14,29 @@ import {
   Zap,
   RefreshCw,
 } from "lucide-react";
-import { triggerLiveSweep } from "../lib/api";
+import { triggerLiveSweep, fetchMarketCoverage } from "../lib/api";
 
 export default function Navbar() {
   const pathname = usePathname();
   const { theme, toggleTheme, demoMode, setDemoMode, lastUpdated, setLastUpdated } = useVayuTheme();
   const [isSweeping, setIsSweeping] = useState(false);
-  const [minutesAgo, setMinutesAgo] = useState(0);
+  const [minutesAgo, setMinutesAgo] = useState<number | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setMinutesAgo((prev) => prev + 1);
-    }, 60000);
-    return () => clearInterval(timer);
+    // Fetch real market coverage to get actual ingestion timestamp
+    fetchMarketCoverage().then((cov) => {
+      if (cov) {
+        setMinutesAgo(0);
+      } else {
+        setMinutesAgo(null);
+      }
+    });
   }, []);
 
   const handleManualSweep = async () => {
     setIsSweeping(true);
     try {
-      const res = await triggerLiveSweep();
+      await triggerLiveSweep();
       setLastUpdated(new Date().toLocaleTimeString());
       setMinutesAgo(0);
     } catch (e) {
@@ -47,7 +51,11 @@ export default function Navbar() {
   let statusText = "LIVE";
   let dotBg = "bg-emerald-500";
 
-  if (minutesAgo >= 360 && minutesAgo < 1440) {
+  if (minutesAgo === null) {
+    statusColor = "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20";
+    statusText = "BACKEND OFFLINE";
+    dotBg = "bg-rose-500";
+  } else if (minutesAgo >= 360 && minutesAgo < 1440) {
     statusColor = "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20";
     statusText = "STALE (6H+)";
     dotBg = "bg-amber-500";
@@ -56,6 +64,7 @@ export default function Navbar() {
     statusText = "OFFLINE (24H+)";
     dotBg = "bg-rose-500";
   }
+
 
   const navLinks = [
     { name: "Overview", href: "/", icon: Plane },

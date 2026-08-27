@@ -32,7 +32,7 @@ import {
   RouteConcentration,
   MarketCoverageSummary,
 } from "../lib/api";
-import { Activity, Layers } from "lucide-react";
+import { Activity, Layers, AlertCircle } from "lucide-react";
 
 function CommandCenterContent() {
   const searchParams = useSearchParams();
@@ -48,11 +48,13 @@ function CommandCenterContent() {
   const [concentration, setConcentration] = useState<RouteConcentration | null>(null);
   const [coverage, setCoverage] = useState<MarketCoverageSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [drawerRoute, setDrawerRoute] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadDashboardData() {
       setLoading(true);
+      setError(false);
       try {
         const [cpi, alertList, routeData, conc, cov] = await Promise.all([
           fetchAirfareIndex(dataMode),
@@ -62,12 +64,13 @@ function CommandCenterContent() {
           fetchMarketCoverage(),
         ]);
         setCpiData(cpi);
-        setAlerts(alertList);
-        setRoutes(routeData.routes);
+        setAlerts(alertList || []);
+        setRoutes(routeData?.routes || []);
         setConcentration(conc);
         setCoverage(cov);
       } catch (err) {
         console.error("Error loading dashboard data:", err);
+        setError(true);
       } finally {
         setLoading(false);
       }
@@ -75,7 +78,7 @@ function CommandCenterContent() {
     loadDashboardData();
   }, [dataMode, dateRangeDays]);
 
-  if (loading && !cpiData) {
+  if (loading) {
     return (
       <div className="space-y-8">
         <HeroPulseSkeleton />
@@ -91,34 +94,50 @@ function CommandCenterContent() {
 
   const activeRouteCode = selectedCorridor || "DEL-BOM";
   const activeAlert = alerts.find((a) => a.corridor === activeRouteCode);
-  const sigmaDev = activeAlert?.sigma_deviation ?? 3.5;
-  const hhiScore = concentration?.hhi ?? 1850;
+  const sigmaDev = activeAlert?.sigma_deviation ?? 0.0;
+  const hhiScore = concentration?.hhi ?? 0;
 
-  const marketStatus = calculateMarketStatus(cpiData?.composite_index ?? 161.78, alerts.length);
+  const marketStatus = cpiData
+    ? calculateMarketStatus(cpiData.composite_index, alerts.length)
+    : { status: "BACKEND UNAVAILABLE", color: "bg-rose-500/10 text-rose-400 border-rose-500/30", description: "Could not connect to production API." };
 
-  const contributors = calculateCpiContributions([
-    { corridor: "DEL-BOM", weight: 0.26, jevonsIndex: 144.6 },
-    { corridor: "BOM-DEL", weight: 0.24, jevonsIndex: 142.7 },
-    { corridor: "BLR-DEL", weight: 0.20, jevonsIndex: 144.0 },
-    { corridor: "DEL-CCU", weight: 0.14, jevonsIndex: 126.3 },
-    { corridor: "DEL-PAT", weight: 0.09, jevonsIndex: 163.4 },
-    { corridor: "BOM-GOI", weight: 0.07, jevonsIndex: 116.1 },
-  ]);
+  const contributors = routes && routes.length > 0
+    ? calculateCpiContributions(
+        routes.map((r, i) => ({
+          corridor: `${r.origin}-${r.destination}`,
+          weight: 1 / Math.max(1, routes.length),
+          jevonsIndex: r.jevons_index,
+        }))
+      )
+    : [];
+
+  const obsCount = coverage
+    ? dataMode === "live"
+      ? coverage.live_observation_count
+      : dataMode === "historical"
+      ? coverage.historical_observation_count
+      : coverage.live_observation_count + coverage.historical_observation_count
+    : 0;
 
   return (
     <div className="space-y-6 font-sans">
-      {/* 1. Global Data Mode Selector (LIVE ONLY, HISTORICAL ONLY, LIVE + HISTORICAL) */}
+      {/* Backend Error Notification Banner if backend is offline */}
+      {(!cpiData && !loading) && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 font-mono text-xs flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 shrink-0 text-rose-400" />
+          <div>
+            <strong className="block font-bold">BACKEND SERVICE UNAVAILABLE</strong>
+            <span>Unable to connect to the production VAYU-CPI API server. Showing empty state.</span>
+          </div>
+        </div>
+      )}
+
+      {/* 1. Global Data Mode Selector */}
       <DataModeSelector
         currentMode={dataMode}
         onModeChange={setDataMode}
-        observationCount={
-          dataMode === "live"
-            ? coverage?.live_observation_count ?? 538
-            : dataMode === "historical"
-            ? coverage?.historical_observation_count ?? 360
-            : (coverage?.live_observation_count ?? 538) + (coverage?.historical_observation_count ?? 360)
-        }
-        lastUpdated="Updated 2 mins ago"
+        observationCount={obsCount}
+        lastUpdated={cpiData?.calculation_date ? `Calculated ${cpiData.calculation_date}` : "No live backend timestamp"}
         sourceLabel={cpiData?.source_label || "LIVE OBSERVATIONS"}
       />
 
@@ -135,10 +154,16 @@ function CommandCenterContent() {
       </div>
 
       {/* 3. Full India Market Coverage Counters */}
-      {coverage && <CoverageMetrics coverage={coverage} />}
+      {coverage ? (
+        <CoverageMetrics coverage={coverage} />
+      ) : (
+        <div className="p-4 rounded-lg bg-slate-900/60 border border-slate-800 font-mono text-xs text-slate-500 text-center">
+          Coverage metrics unavailable from backend service.
+        </div>
+      )}
 
       {/* 4. Hero Market Pulse Section */}
-      <HeroMarketPulse cpiData={cpiData} alerts={alerts} observationCount={coverage?.live_observation_count ?? 538} />
+      <HeroMarketPulse cpiData={cpiData} alerts={alerts} observationCount={obsCount} />
 
       {/* 5. Top Movers (Rising & Falling) */}
       <TopMovers routes={routes} onSelectCorridor={(c) => { setSelectedCorridor(c); setDrawerRoute(c); }} />
@@ -169,12 +194,12 @@ function CommandCenterContent() {
             <div className="flex justify-between">
               <span>30D Baseline Fare:</span>
               <span className="font-bold text-slate-700 dark:text-slate-200">
-                ₹{(activeAlert?.baseline_30d_fare ?? 8000).toLocaleString()}
+                {activeAlert ? `₹${activeAlert.baseline_30d_fare.toLocaleString()}` : "Baseline unavailable"}
               </span>
             </div>
             <div className="flex justify-between">
               <span>Sigma Deviation:</span>
-              <span className="font-bold text-rose-500">+{sigmaDev}σ</span>
+              <span className="font-bold text-rose-500">{sigmaDev > 0 ? `+${sigmaDev}σ` : "0σ"}</span>
             </div>
           </div>
         </div>
@@ -184,31 +209,39 @@ function CommandCenterContent() {
       <CurrentVsHistoricalCard
         origin={activeRouteCode.split("-")[0]}
         destination={activeRouteCode.split("-")[1]}
-        currentFare={activeAlert?.current_fare ?? 6074}
+        currentFare={activeAlert?.current_fare ?? 0}
       />
 
       {/* 8. Tracked Corridors Cards */}
       <RouteCards routes={routes} alerts={alerts} />
 
       {/* 9. Contribution to National CPI Panel */}
-      <div className="glass-panel p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 font-mono text-xs">
+      <div className="glass-panel p-6 space-y-4 font-mono text-xs">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
             <Layers className="h-4 w-4 text-blue-500" />
-            <span>ROUTE CONTRIBUTION TO NATIONAL AIRFARE INFLATION ({cpiData?.data_mode?.toUpperCase()})</span>
+            <span>ROUTE CONTRIBUTION TO NATIONAL AIRFARE INFLATION ({cpiData?.data_mode?.toUpperCase() || "LIVE"})</span>
           </div>
-          <span className="text-slate-400">Total CPI Impact: +61.78 Pts</span>
+          <span className="text-slate-400">
+            Total Composite Index: {cpiData ? `${cpiData.composite_index} Pts` : "Unavailable"}
+          </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 font-mono text-xs">
-          {contributors.map((c, i) => (
-            <div key={i} className="p-3 rounded-lg bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-1 text-center">
-              <span className="font-bold text-slate-900 dark:text-white block">{c.corridor}</span>
-              <span className="text-[10px] text-slate-400 block">Weight: {(c.weight * 100).toFixed(0)}%</span>
-              <span className="font-bold text-blue-500 block">+{c.contributionPoints} pts</span>
-            </div>
-          ))}
-        </div>
+        {contributors.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+            {contributors.map((c, i) => (
+              <div key={i} className="p-3 rounded-lg bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-1 text-center">
+                <span className="font-bold text-slate-900 dark:text-white block">{c.corridor}</span>
+                <span className="text-[10px] text-slate-400 block">Weight: {(c.weight * 100).toFixed(0)}%</span>
+                <span className="font-bold text-blue-500 block">+{c.contributionPoints} pts</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 text-center text-slate-500 border border-dashed border-slate-800 rounded-lg">
+            Insufficient route data for CPI contribution calculation.
+          </div>
+        )}
       </div>
 
       {/* 10. Regulatory Risk Matrix */}
@@ -221,7 +254,7 @@ function CommandCenterContent() {
       <WhyIsThisHappening corridor={activeRouteCode} sigmaDeviation={sigmaDev} hhiScore={hhiScore} />
 
       {/* 13. Forecast Trajectory & Book Now Recommendation */}
-      <ForecastPanel corridor={activeRouteCode} currentFare={activeAlert?.current_fare ?? 6074} />
+      <ForecastPanel corridor={activeRouteCode} currentFare={activeAlert?.current_fare ?? 0} />
 
       {/* Reusable Route Intelligence Drawer */}
       <RouteDrawer corridor={drawerRoute} onClose={() => setDrawerRoute(null)} />
@@ -236,4 +269,3 @@ export default function CommandCenterOverview() {
     </Suspense>
   );
 }
-

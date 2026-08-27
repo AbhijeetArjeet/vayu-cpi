@@ -107,8 +107,8 @@ def init_db() -> None:
                 ("source_type", "VARCHAR(64) DEFAULT 'LIVE_FLIGHT'"),
                 ("source_name", "VARCHAR(128) DEFAULT 'Google Flights Live Feed'"),
                 ("dataset_version", "VARCHAR(32) DEFAULT '1.0.0'"),
-                ("is_live", "BOOLEAN DEFAULT 1"),
-                ("is_historical", "BOOLEAN DEFAULT 0"),
+                ("is_live", "BOOLEAN DEFAULT TRUE"),
+                ("is_historical", "BOOLEAN DEFAULT FALSE"),
                 ("ingestion_timestamp", "VARCHAR"),
             ]
             for col_name, col_type in cols_to_add:
@@ -116,8 +116,12 @@ def init_db() -> None:
                     conn.execute(text(f"ALTER TABLE fare_observations ADD COLUMN {col_name} {col_type};"))
                     conn.commit()
                 except Exception:
-                    # Column already exists
-                    pass
+                    # Column already exists or table doesn't need alteration; rollback to reset PostgreSQL transaction state
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+
 
         seed_authentic_historical_data()
     except Exception as e:

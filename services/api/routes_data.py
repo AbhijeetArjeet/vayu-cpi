@@ -65,39 +65,7 @@ async def list_datasets():
     session = SessionLocal()
     try:
         datasets = session.query(DatasetRegistry).all()
-        if not datasets:
-            # Fallback registered default datasets if DB registry empty
-            return [
-                DatasetMetadata(
-                    id="ds_live_vayu",
-                    source_type="LIVE_FLIGHT",
-                    source_name="VAYU Production Google Flights Ingestion Pipeline",
-                    dataset_version="1.0.0",
-                    description="Real-time multi-horizon fare observation scraper.",
-                    imported_at="Continuous",
-                    row_count=538,
-                    date_range_start="2026-08-01",
-                    date_range_end="2026-08-27",
-                    routes_count=18,
-                    airlines_count=5,
-                    status="ACTIVE",
-                ),
-                DatasetMetadata(
-                    id="ds_dgca_2024_2025_v1",
-                    source_type="DGCA_REFERENCE",
-                    source_name="DGCA Domestic Airfare Baseline Dataset (2024-2025)",
-                    dataset_version="2025.1",
-                    description="Official historical tariff benchmark and passenger movement baseline dataset.",
-                    imported_at="2026-08-25T12:00:00",
-                    row_count=120,
-                    date_range_start="2024-01-01",
-                    date_range_end="2025-12-31",
-                    routes_count=12,
-                    airlines_count=4,
-                    status="ACTIVE",
-                ),
-            ]
-        return [
+        result_list = [
             DatasetMetadata(
                 id=d.id,
                 source_type=d.source_type,
@@ -114,8 +82,37 @@ async def list_datasets():
             )
             for d in datasets
         ]
+
+        # If no explicit registry entries, check if live observations exist in the database
+        if not result_list:
+            live_count = session.query(func.count(FareObservation.id)).filter(FareObservation.is_live == True).scalar() or 0
+            if live_count > 0:
+                live_routes = session.query(FareObservation.origin, FareObservation.destination).filter(FareObservation.is_live == True).distinct().count()
+                live_airlines = session.query(FareObservation.carrier_code).filter(FareObservation.is_live == True).distinct().count()
+                min_date = session.query(func.min(FareObservation.scraped_at)).filter(FareObservation.is_live == True).scalar()
+                max_date = session.query(func.max(FareObservation.scraped_at)).filter(FareObservation.is_live == True).scalar()
+
+                result_list.append(
+                    DatasetMetadata(
+                        id="ds_live_vayu",
+                        source_type="LIVE_FLIGHT",
+                        source_name="VAYU Production Google Flights Ingestion Pipeline",
+                        dataset_version="1.0.0",
+                        description="Real-time multi-horizon live flight price observations.",
+                        imported_at="Continuous",
+                        row_count=live_count,
+                        date_range_start=str(min_date)[:10] if min_date else "2026-08-01",
+                        date_range_end=str(max_date)[:10] if max_date else "2026-08-27",
+                        routes_count=live_routes,
+                        airlines_count=live_airlines,
+                        status="ACTIVE",
+                    )
+                )
+
+        return result_list
     finally:
         session.close()
+
 
 
 @router.get("/historical/analytics")
