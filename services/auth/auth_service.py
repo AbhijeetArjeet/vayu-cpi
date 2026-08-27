@@ -293,7 +293,11 @@ def verify_regulator_otp(phone: str, otp_code: str, ip_address: Optional[str] = 
 
 
 def send_email_otp(to_email: str, otp: str, expires_minutes: int = 5) -> Dict[str, Any]:
-    """Sends OTP verification code via configured SMTP server (Gmail, Outlook, etc.)."""
+    """Sends OTP verification code via Resend HTTPS API (fallback) or configured SMTP server."""
+    resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
+    if resend_api_key:
+        return send_resend_email(to_email, otp, resend_api_key, expires_minutes)
+
     smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_user = os.getenv("SMTP_USER", "").strip()
@@ -328,7 +332,8 @@ def send_email_otp(to_email: str, otp: str, expires_minutes: int = 5) -> Dict[st
     msg.attach(MIMEText(body, "html"))
 
     try:
-        server = smtplib.SMTP(smtp_host, smtp_port)
+        # Enforce 6-second timeout to prevent connection hangs on blocked cloud ports
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=6)
         server.starttls()
         server.login(smtp_user, smtp_password)
         server.send_message(msg)
@@ -336,5 +341,54 @@ def send_email_otp(to_email: str, otp: str, expires_minutes: int = 5) -> Dict[st
         logger.info(f"[EMAIL_SUCCESS] OTP sent via SMTP to {to_email}")
         return {"success": True, "error": None}
     except Exception as e:
-        logger.error(f"[SMTP_ERROR] Failed to send email to {to_email}: {e}")
-        return {"success": False, "error": str(e)}
+        logger.error(f"[SMTP_ERROR] SMTP server failed (Host: {smtp_host}:{smtp_port}): {e}")
+        return {"success": False, "error": f"SMTP Mail Server connection failed: {str(e)}"}
+
+
+def send_resend_email(to_email: str, otp: str, api_key: str, expires_minutes: int = 5) -> Dict[str, Any]:
+    """Sends OTP verification code via Resend HTTPS API (Port 443, bypasses SMTP port blocking)."""
+    import urllib.request
+    import json
+    url = "https://api.resend.com/emails"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+        <h2 style="color: #0284c7; margin-bottom: 20px;">VAYU-CPI Regulatory Authentication Gateway</h2>
+        <p>You requested a one-time password (OTP) to log into the restricted Ministry of Statistics (MoSPI) Regulatory Portal.</p>
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; text-align: center; margin: 25px 0; max-width: 300px;">
+          <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #1e3a8a;">{otp}</span>
+        </div>
+        <p>This verification code is valid for <strong>{expires_minutes} minutes</strong>. For security, do not share this code with anyone.</p>
+        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
+        <p style="font-size: 11px; color: #9ca3af;">This is an automated security transmission. If you did not request this code, please ignore this email.</p>
+      </body>
+    </html>
+    """
+
+    payload = {
+        "from": "VAYU-CPI Authority <onboarding@resend.dev>",
+        "to": to_email,
+        "subject": "VAYU-CPI Secure Verification Code",
+        "html": body
+    }
+
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status in (200, 201):
+                logger.info(f"[RESEND_SUCCESS] OTP sent via Resend API to {to_email}")
+                return {"success": True, "error": None}
+            return {"success": False, "error": "Resend API returned non-200 status."}
+    except Exception as e:
+        logger.error(f"[RESEND_ERROR] Failed to send via Resend API: {e}")
+        return {"success": False, "error": f"Resend API dispatch failed: {str(e)}"}
