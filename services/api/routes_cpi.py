@@ -56,7 +56,7 @@ async def trigger_live_sweep():
 
 
 @router.get("/airfare-index")
-async def get_airfare_index(
+def get_airfare_index(
     target_date: date | None = Query(None),
     mode: str = Query("live", description="live, historical, combined"),
 ):
@@ -66,7 +66,7 @@ async def get_airfare_index(
 
 
 @router.get("/airfare-index/series")
-async def get_airfare_index_series(
+def get_airfare_index_series(
     days_back: int = Query(30, ge=1, le=365),
     mode: str = Query("live", description="live, historical, combined"),
 ):
@@ -103,7 +103,7 @@ async def get_airfare_index_series(
 
 
 @router.get("/route-index")
-async def get_route_index(
+def get_route_index(
     origin: str = Query(..., min_length=3, max_length=3),
     destination: str = Query(..., min_length=3, max_length=3),
     horizon_days: int = Query(..., description="30, 7, or 1"),
@@ -126,7 +126,7 @@ async def get_route_index(
 
 
 @router.get("/routes/all-current")
-async def get_all_routes_current(
+def get_all_routes_current(
     target_date: date | None = Query(None),
     mode: str = Query("live", description="live, historical, combined"),
 ):
@@ -141,7 +141,7 @@ async def get_all_routes_current(
 
 
 @router.get("/export/csv")
-async def export_csv(
+def export_csv(
     days_back: int = Query(30, ge=1, le=365),
     mode: str = Query("live", description="live, historical, combined"),
 ):
