@@ -28,8 +28,8 @@ logger = logging.getLogger("vayu-cpi.auth_service")
 
 OTP_EXPIRATION_SECONDS = 300  # 5 minutes
 MAX_VERIFICATION_ATTEMPTS = 5
-RESEND_COOLDOWN_SECONDS = 30
-MAX_REQUESTS_PER_10MIN = 3
+RESEND_COOLDOWN_SECONDS = 10
+MAX_REQUESTS_PER_10MIN = 30
 
 
 def log_audit_event(
