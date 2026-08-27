@@ -6,9 +6,11 @@ from datetime import datetime, timedelta
 from typing import Any, List, Dict
 
 try:
+    from primp import Client
     from fast_flights import FlightQuery, Passengers, create_query, get_flights
+    from fast_flights.integrations import FetchIntegration
 except Exception as _import_err:
-    FlightQuery = Passengers = create_query = get_flights = None
+    Client = FlightQuery = Passengers = create_query = get_flights = FetchIntegration = None
     FAST_FLIGHTS_IMPORT_ERROR = str(_import_err)
 
 from core.schemas import RawFareRecord
@@ -26,6 +28,28 @@ TRACKED_CORRIDORS = [
     ("BOM", "GOI"),
 ]
 TRACKED_HORIZONS = [30, 7, 1]
+
+
+class GoogleConsentFetchIntegration(FetchIntegration if FetchIntegration else object):
+    """
+    Custom fetch integration that injects Google Consent cookies & headers
+    to bypass consent page redirects on datacenter/cloud IPs (Railway, Render, AWS).
+    """
+    def fetch_html(self, q: Any) -> str:
+        client = Client(
+            impersonate="chrome_145",
+            impersonate_os="macos",
+            referer=True,
+            cookie_store=True,
+            headers={
+                "Accept-Language": "en-US,en;q=0.9",
+                "Cookie": "SOCS=CAISHAgBEhJnd3NfMjAyNDA4MjctMF9SQzEaAmVuIAEaBgiAo_uuBg; CONSENT=YES+cb; GoogleConsent=1",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            }
+        )
+        params = q.params() if hasattr(q, "params") else {"q": q}
+        res = client.get("https://www.google.com/travel/flights", params=params)
+        return res.text
 
 
 def _parse_numeric_price(raw_val: Any) -> float:
@@ -78,6 +102,7 @@ def fetch_route_horizon_with_diagnostics(
         return diag
 
     start_time = time.perf_counter()
+    result = None
     try:
         query_obj = create_query(
             flights=[FlightQuery(date=dep_date, from_airport=origin, to_airport=destination)],
@@ -86,9 +111,21 @@ def fetch_route_horizon_with_diagnostics(
             currency="INR",
             passengers=Passengers(adults=1),
         )
-        result = get_flights(query_obj)
-        elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
         
+        # Try standard get_flights first
+        try:
+            result = get_flights(query_obj)
+        except AttributeError as attr_err:
+            if "'NoneType' object has no attribute 'text'" in str(attr_err):
+                logger.warning(
+                    f"[FETCH_RETRY] Standard fetch hit Google Consent redirect on cloud IP for {origin}->{destination}. "
+                    "Retrying with GoogleConsentFetchIntegration..."
+                )
+                result = get_flights(query_obj, integration=GoogleConsentFetchIntegration())
+            else:
+                raise
+
+        elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
         flight_groups_cnt = len(result) if result else 0
         diag["fetch_stage"].update({
             "status": "success" if result is not None else "empty_response",
