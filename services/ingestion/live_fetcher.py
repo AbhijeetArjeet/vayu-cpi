@@ -136,7 +136,7 @@ def fetch_route_horizon_with_diagnostics(
         # Primary fetch
         try:
             result = get_flights(query_obj)
-        except (AttributeError, Exception) as primary_err:
+        except (AttributeError, IndexError, Exception) as primary_err:
             err_str = str(primary_err)
             if "'NoneType' object has no attribute 'text'" in err_str or "script.ds:1" in err_str or isinstance(primary_err, AttributeError):
                 logger.warning(
@@ -144,9 +144,17 @@ def fetch_route_horizon_with_diagnostics(
                     "Triggering isolated GoogleConsentFetchIntegration fallback..."
                 )
                 used_fallback = True
-                result = get_flights(query_obj, integration=GoogleConsentFetchIntegration())
+                try:
+                    result = get_flights(query_obj, integration=GoogleConsentFetchIntegration())
+                except IndexError as ie:
+                    logger.warning(f"[PARSE_FORMAT_WARN] Upstream offer format for {origin}->{destination} T-{horizon_days} could not be parsed: {ie}")
+                    result = []
+            elif isinstance(primary_err, IndexError):
+                logger.warning(f"[PARSE_FORMAT_WARN] Upstream offer format for {origin}->{destination} T-{horizon_days} could not be parsed: {primary_err}")
+                result = []
             else:
                 raise primary_err
+
 
         elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
         flight_groups_cnt = len(result) if result else 0
