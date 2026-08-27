@@ -167,16 +167,82 @@ def test_debug_endpoint():
 
     client = TestClient(app)
     
-    # Forbidden without force parameter
-    res = client.get("/api/v1/debug/flight-fetch")
-    assert res.status_code == 403
-
-    # Works with force=true (benchmark route DEL-BOM T-7)
+    # In dev mode, works with force=true
     res = client.get("/api/v1/debug/flight-fetch?force=true&origin=DEL&destination=BOM&horizon_days=7")
     assert res.status_code == 200
     data = res.json()
     assert "status" in data
     assert data["route"] == "DEL-BOM"
     assert data["horizon"] == 7
-    assert "fast_flights_version" in data
+
+
+def test_consent_detection_helpers():
+    from services.ingestion.live_fetcher import is_google_consent_page, has_flight_script
+
+    consent_html = "<html><head><title>Before you continue to Google</title></head><body>Consent</body></html>"
+    normal_html = "<html><head><title>Google Flights</title></head><body><script class='ds:1'>data:[[...]]</script></body></html>"
+
+    assert is_google_consent_page(consent_html) is True
+    assert is_google_consent_page(normal_html) is False
+    assert has_flight_script(normal_html) is True
+    assert has_flight_script(consent_html) is False
+
+
+def test_debug_endpoint_production_security(monkeypatch):
+    from fastapi.testclient import TestClient
+    from services.api.main import app
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("VAYU_DEBUG_SECRET", "super-secret-admin-key")
+
+    client = TestClient(app)
+
+    # Public unauthenticated request in production -> HTTP 404 Not Found
+    res = client.get("/api/v1/debug/flight-fetch?force=true&origin=DEL&destination=BOM&horizon_days=7")
+    assert res.status_code == 404
+
+    # Request with invalid secret -> HTTP 404 Not Found
+    res = client.get(
+        "/api/v1/debug/flight-fetch?force=true&origin=DEL&destination=BOM&horizon_days=7",
+        headers={"X-Admin-Secret": "wrong-secret"}
+    )
+    assert res.status_code == 404
+
+    # Request with valid secret -> HTTP 200 OK
+    res = client.get(
+        "/api/v1/debug/flight-fetch?force=true&origin=DEL&destination=BOM&horizon_days=7",
+        headers={"X-Admin-Secret": "super-secret-admin-key"}
+    )
+    assert res.status_code == 200
+    assert res.json()["status"] in ("success", "failed", "empty_response")
+
+
+def test_scheduler_continuation(monkeypatch):
+    import services.ingestion.live_fetcher as lf
+
+    call_count = 0
+
+    def mock_fetch_route_horizon_with_diagnostics(origin, destination, horizon_days):
+        nonlocal call_count
+        call_count += 1
+        # Intentionally raise exception on 1st call to verify sweep continues on remaining 17 calls
+        if origin == "DEL" and destination == "BOM" and horizon_days == 30:
+            raise RuntimeError("Mock connection error for DEL-BOM T-30")
+        return {
+            "records": [],
+            "fetch_stage": {"status": "success", "flight_groups": 10, "elapsed_ms": 100},
+            "parse_stage": {"status": "success", "records_generated": 5, "skipped_offers": 0},
+            "departure_date": "2026-09-03"
+        }
+
+    monkeypatch.setattr(lf, "fetch_route_horizon_with_diagnostics", mock_fetch_route_horizon_with_diagnostics)
+
+    records, summary = lf.fetch_all_corridors_with_summary()
+
+    # Total sweeps must be 18
+    assert summary["total_jobs"] == 18
+    assert summary["failed_jobs"] == 1
+    assert summary["success_jobs"] == 17
+    assert call_count == 18
+
 

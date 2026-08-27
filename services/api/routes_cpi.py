@@ -27,25 +27,31 @@ router = APIRouter(prefix="/api/v1/cpi", tags=["MoSPI Macroeconomic Engine"])
 async def trigger_live_sweep():
     """Triggers an immediate live Google Flights scraping sweep across all corridors."""
     try:
-        from services.ingestion.live_fetcher import fetch_all_corridors
+        from services.ingestion.live_fetcher import fetch_all_corridors_with_summary
         from services.persistence.db import save_fare_records_with_diagnostics
 
-        records = fetch_all_corridors()
+        records, summary = fetch_all_corridors_with_summary()
         db_res = {"status": "skipped", "inserted": 0, "error": None}
         if records:
             db_res = save_fare_records_with_diagnostics(records)
 
         return {
             "status": "success" if records else "empty_response",
-            "message": f"Scraped {len(records)} live fares from Google Flights",
+            "message": f"Scraped {len(records)} live fares across {summary['total_jobs']} sweeps",
             "count": len(records),
             "saved_to_db": db_res.get("inserted", 0),
             "db_status": db_res.get("status"),
             "db_error": db_res.get("error"),
+            "sweep_summary": {
+                "success_jobs": summary["success_jobs"],
+                "failed_jobs": summary["failed_jobs"],
+                "total_jobs": summary["total_jobs"],
+            },
             "timestamp": date.today().isoformat()
         }
     except Exception as e:
         return {"status": "error", "message": str(e), "count": 0}
+
 
 
 

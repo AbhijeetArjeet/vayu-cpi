@@ -4,49 +4,63 @@ import os
 import traceback
 from datetime import datetime
 from apscheduler.schedulers.blocking import BlockingScheduler
-from services.ingestion.live_fetcher import fetch_all_corridors, TRACKED_CORRIDORS, TRACKED_HORIZONS
+from services.ingestion.live_fetcher import (
+    fetch_all_corridors_with_summary,
+    TRACKED_CORRIDORS,
+    TRACKED_HORIZONS,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("vayu-cpi.scheduler")
 
 SWEEP_INTERVAL_MINUTES = 6 * 60  # Every 6 hours
 
-def run_ingestion_sweep() -> None:
+def run_ingestion_sweep() -> dict:
     now_str = datetime.now().isoformat()
+    total_expected = len(TRACKED_CORRIDORS) * len(TRACKED_HORIZONS)
     logger.info(
         f"\n[SCHEDULER_SWEEP_START]\n"
         f"  Timestamp : {now_str}\n"
         f"  Corridors : {len(TRACKED_CORRIDORS)} corridors {TRACKED_CORRIDORS}\n"
         f"  Horizons  : {TRACKED_HORIZONS} days\n"
-        f"  Total Jobs: {len(TRACKED_CORRIDORS) * len(TRACKED_HORIZONS)} route-horizon sweeps"
+        f"  Total Jobs: {total_expected} route-horizon sweeps"
     )
     
     try:
-        records = fetch_all_corridors()
+        records, summary = fetch_all_corridors_with_summary()
     except Exception as exc:
         logger.error(
             f"[SCHEDULER_SWEEP_FAILED] Ingestion sweep failed during fetch: {exc}\n"
             f"{traceback.format_exc()}"
         )
-        return
+        return {"status": "failed", "error": str(exc)}
 
     if not records:
-        logger.warning("[SCHEDULER_SWEEP_EMPTY] Sweep completed but produced 0 records -- check upstream Google Flights response.")
-        return
+        logger.warning("[SCHEDULER_SWEEP_EMPTY] Sweep completed but produced 0 records across all corridors.")
+        return summary
 
     # Database persistence with detailed telemetry
     try:
         from services.persistence.db import save_fare_records_with_diagnostics
         db_diag = save_fare_records_with_diagnostics(records)
+        summary["db_stage"] = db_diag
         if db_diag["status"] == "success":
-            logger.info(f"[SCHEDULER_DB_SUCCESS] Successfully persisted {db_diag['inserted']} fare records to DB.")
+            logger.info(
+                f"\n[SCHEDULER_SWEEP_SUCCESS]\n"
+                f"  SUCCESS : {summary['success_jobs']}\n"
+                f"  FAILED  : {summary['failed_jobs']}\n"
+                f"  TOTAL   : {summary['total_jobs']}\n"
+                f"  PERSISTED: {db_diag['inserted']} fare records to DB"
+            )
         else:
             err = db_diag.get("error") or {}
-            logger.error(f"[SCHEDULER_DB_FAILED] DB persistence failed ({err.get('type')}): {err.get('message')}. Falling back to JSON snapshot.")
+            logger.error(f"[SCHEDULER_DB_FAILED] DB persistence failed ({err.get('type')}): {err.get('message')}. Saving JSON snapshot fallback.")
             save_to_json(records)
     except Exception as db_exc:
-        logger.error(f"[SCHEDULER_DB_EXC] Unexpected error saving to DB: {db_exc}. Saving to JSON fallback.")
+        logger.error(f"[SCHEDULER_DB_EXC] Unexpected error saving to DB: {db_exc}. Saving JSON snapshot fallback.")
         save_to_json(records)
+
+    return summary
 
 
 def save_to_json(records):

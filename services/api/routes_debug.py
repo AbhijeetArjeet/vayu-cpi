@@ -1,10 +1,10 @@
 """
 services/api/routes_debug.py
-Production diagnostic endpoint for testing flight fetching and persistence independence.
+Production diagnostic endpoint with security access control.
 """
 
 import os
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, Header, HTTPException
 from core.env_diag import get_system_diagnostics
 from services.ingestion.live_fetcher import fetch_route_horizon_with_diagnostics
 from services.persistence.db import save_fare_records_with_diagnostics
@@ -12,25 +12,52 @@ from services.persistence.db import save_fare_records_with_diagnostics
 router = APIRouter(prefix="/api/v1/debug", tags=["Production Diagnostics"])
 
 
+def _is_production_environment() -> bool:
+    """Detects whether running in a production deployment environment (e.g. Railway/Render)."""
+    env_name = os.getenv("ENVIRONMENT", "").lower()
+    railway_env = os.getenv("RAILWAY_ENVIRONMENT", "").lower()
+    render_env = os.getenv("RENDER", "").lower()
+    return env_name in ("production", "prod") or bool(railway_env) or bool(render_env)
+
+
+def _validate_debug_authorization(x_admin_secret: str | None) -> bool:
+    """
+    Validates access for diagnostic endpoints.
+    In local development: Access is allowed freely unless explicitly disabled.
+    In production: Requires X-Admin-Secret matching VAYU_DEBUG_SECRET or ADMIN_SECRET_KEY.
+    """
+    secret_key = os.getenv("VAYU_DEBUG_SECRET") or os.getenv("ADMIN_SECRET_KEY")
+    
+    # In production, authentication is mandatory
+    if _is_production_environment():
+        if not secret_key:
+            # If no secret key is configured in production, disable debug endpoint completely
+            return False
+        return x_admin_secret == secret_key
+
+    # In local development, allow access unless VAYU_DEBUG_INGESTION is set to explicit false
+    debug_flag = os.getenv("VAYU_DEBUG_INGESTION", "true").lower() in ("true", "1", "yes")
+    if secret_key and x_admin_secret:
+        return x_admin_secret == secret_key
+    return debug_flag
+
+
 @router.get("/flight-fetch")
 async def debug_flight_fetch(
     origin: str = Query("DEL", min_length=3, max_length=3),
     destination: str = Query("BOM", min_length=3, max_length=3),
     horizon_days: int = Query(7, ge=1, le=365),
-    force: bool = Query(False, description="Set true to run debug fetch regardless of VAYU_DEBUG_INGESTION env var"),
+    force: bool = Query(False, description="Diagnostic flag"),
+    x_admin_secret: str | None = Header(None, alias="X-Admin-Secret"),
 ):
     """
     Diagnostic endpoint to test flight fetching, parsing, and DB persistence independently.
-    Default parameters maintain exact parity with benchmark test: DEL -> BOM T-7.
+    In production deployments, access requires a valid X-Admin-Secret header.
     """
-    debug_env = os.getenv("VAYU_DEBUG_INGESTION", "false").lower() in ("true", "1", "yes")
-    if not (debug_env or force):
+    if not _validate_debug_authorization(x_admin_secret):
         raise HTTPException(
-            status_code=403,
-            detail=(
-                "Debug ingestion endpoint is disabled. Set environment variable "
-                "VAYU_DEBUG_INGESTION=true or pass query parameter ?force=true to run diagnostic test."
-            ),
+            status_code=404,
+            detail="Resource not found."
         )
 
     origin_code = origin.upper()
@@ -45,7 +72,6 @@ async def debug_flight_fetch(
 
     sys_diag = get_system_diagnostics()
 
-    # Determine fetch/parse stage status
     if fetch_stage.get("status") == "failed":
         err = fetch_stage.get("error") or {}
         return {

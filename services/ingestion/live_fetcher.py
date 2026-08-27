@@ -3,14 +3,15 @@ import time
 import logging
 import traceback
 from datetime import datetime, timedelta
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Tuple, Optional
 
 try:
     from primp import Client
     from fast_flights import FlightQuery, Passengers, create_query, get_flights
     from fast_flights.integrations import FetchIntegration
+    from fast_flights.parser import parse as parse_flights_html
 except Exception as _import_err:
-    Client = FlightQuery = Passengers = create_query = get_flights = FetchIntegration = None
+    Client = FlightQuery = Passengers = create_query = get_flights = FetchIntegration = parse_flights_html = None
     FAST_FLIGHTS_IMPORT_ERROR = str(_import_err)
 
 from core.schemas import RawFareRecord
@@ -30,10 +31,31 @@ TRACKED_CORRIDORS = [
 TRACKED_HORIZONS = [30, 7, 1]
 
 
+def is_google_consent_page(html: str) -> bool:
+    """Detects whether Google Flights returned a consent page or redirect HTML."""
+    if not html:
+        return False
+    html_lower = html.lower()
+    return (
+        "before you continue to google" in html_lower
+        or "consent.google.com" in html_lower
+        or "g.co/same-identity" in html_lower
+        or "<title>before you continue" in html_lower
+    )
+
+
+def has_flight_script(html: str) -> bool:
+    """Checks whether the Google Flights JS data payload script class='ds:1' exists in HTML."""
+    if not html:
+        return False
+    return "class=\"ds:1\"" in html or "class='ds:1'" in html or "ds:1" in html
+
+
 class GoogleConsentFetchIntegration(FetchIntegration if FetchIntegration else object):
     """
     Custom fetch integration that injects Google Consent cookies & headers
     to bypass consent page redirects on datacenter/cloud IPs (Railway, Render, AWS).
+    Never logs cookies or header secrets.
     """
     def fetch_html(self, q: Any) -> str:
         client = Client(
@@ -68,10 +90,7 @@ def fetch_route_horizon_with_diagnostics(
     origin: str, destination: str, horizon_days: int
 ) -> Dict[str, Any]:
     """
-    Executes flight fetch for a single route + horizon and returns full diagnostic stage metrics:
-    - fetch_stage: status, elapsed_ms, raw flight_groups count, error details
-    - parse_stage: records generated count, error details
-    - records: List[RawFareRecord]
+    Executes flight fetch for a single route + horizon and returns full diagnostic stage metrics.
     """
     now = datetime.now()
     dep_date = (now + timedelta(days=horizon_days)).strftime("%Y-%m-%d")
@@ -82,7 +101,7 @@ def fetch_route_horizon_with_diagnostics(
         "horizon_days": horizon_days,
         "departure_date": dep_date,
         "request_timestamp": now.isoformat(),
-        "fetch_stage": {"status": "pending", "elapsed_ms": 0, "flight_groups": 0, "error": None},
+        "fetch_stage": {"status": "pending", "elapsed_ms": 0, "flight_groups": 0, "used_fallback": False, "error": None},
         "parse_stage": {"status": "pending", "records_generated": 0, "skipped_offers": 0, "error": None},
         "records": [],
     }
@@ -103,6 +122,8 @@ def fetch_route_horizon_with_diagnostics(
 
     start_time = time.perf_counter()
     result = None
+    used_fallback = False
+
     try:
         query_obj = create_query(
             flights=[FlightQuery(date=dep_date, from_airport=origin, to_airport=destination)],
@@ -112,18 +133,20 @@ def fetch_route_horizon_with_diagnostics(
             passengers=Passengers(adults=1),
         )
         
-        # Try standard get_flights first
+        # Primary fetch
         try:
             result = get_flights(query_obj)
-        except AttributeError as attr_err:
-            if "'NoneType' object has no attribute 'text'" in str(attr_err):
+        except (AttributeError, Exception) as primary_err:
+            err_str = str(primary_err)
+            if "'NoneType' object has no attribute 'text'" in err_str or "script.ds:1" in err_str or isinstance(primary_err, AttributeError):
                 logger.warning(
-                    f"[FETCH_RETRY] Standard fetch hit Google Consent redirect on cloud IP for {origin}->{destination}. "
-                    "Retrying with GoogleConsentFetchIntegration..."
+                    f"[FETCH_CONSENT_DETECTED] Standard fetch hit Google Consent page/missing payload script on cloud IP for {origin}->{destination} T-{horizon_days}. "
+                    "Triggering isolated GoogleConsentFetchIntegration fallback..."
                 )
+                used_fallback = True
                 result = get_flights(query_obj, integration=GoogleConsentFetchIntegration())
             else:
-                raise
+                raise primary_err
 
         elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
         flight_groups_cnt = len(result) if result else 0
@@ -131,6 +154,7 @@ def fetch_route_horizon_with_diagnostics(
             "status": "success" if result is not None else "empty_response",
             "elapsed_ms": elapsed_ms,
             "flight_groups": flight_groups_cnt,
+            "used_fallback": used_fallback,
         })
         
         logger.info(
@@ -138,6 +162,7 @@ def fetch_route_horizon_with_diagnostics(
             f"  Route          : {origin} -> {destination} T-{horizon_days}\n"
             f"  Status         : HTTP 200 (Success)\n"
             f"  Elapsed        : {elapsed_ms} ms\n"
+            f"  Used Fallback  : {used_fallback}\n"
             f"  Flight Groups  : {flight_groups_cnt}"
         )
     except Exception as exc:
@@ -157,6 +182,7 @@ def fetch_route_horizon_with_diagnostics(
         diag["fetch_stage"].update({
             "status": "failed",
             "elapsed_ms": elapsed_ms,
+            "used_fallback": used_fallback,
             "error": {"type": exc_type, "message": exc_msg, "traceback": tb_str},
         })
         return diag
@@ -245,22 +271,99 @@ def fetch_route_horizon(origin: str, destination: str, horizon_days: int) -> Lis
     return diag.get("records", [])
 
 
-def fetch_all_corridors() -> List[RawFareRecord]:
+def fetch_all_corridors_with_summary() -> Tuple[List[RawFareRecord], Dict[str, Any]]:
+    """
+    Executes full sweep across all tracked corridors and horizons with isolated exception handling.
+    Ensures a single route failure does NOT abort remaining sweeps.
+    Returns: (all_records, summary_dict)
+    """
     all_records: List[RawFareRecord] = []
+    job_results: List[Dict[str, Any]] = []
+    
+    success_cnt = 0
+    failed_cnt = 0
+    total_jobs = len(TRACKED_CORRIDORS) * len(TRACKED_HORIZONS)
     now = datetime.now()
-    logger.info(f"Starting full Google Flights live sweep across {len(TRACKED_CORRIDORS)} corridors at {now.isoformat()}")
+
+    logger.info(
+        f"\n=======================================================\n"
+        f"  STARTING VAYU MULTI-CORRIDOR SWEEP\n"
+        f"=======================================================\n"
+        f"  Timestamp    : {now.isoformat()}\n"
+        f"  Corridors ({len(TRACKED_CORRIDORS)}): {TRACKED_CORRIDORS}\n"
+        f"  Horizons ({len(TRACKED_HORIZONS)}): {TRACKED_HORIZONS} days\n"
+        f"  Total Sweeps : {total_jobs}\n"
+        f"======================================================="
+    )
 
     for origin, destination in TRACKED_CORRIDORS:
         for horizon in TRACKED_HORIZONS:
-            recs = fetch_route_horizon(origin, destination, horizon)
-            all_records.extend(recs)
+            # Isolated execution block per route-horizon pair
+            try:
+                diag = fetch_route_horizon_with_diagnostics(origin, destination, horizon)
+                records = diag.get("records", [])
+                fetch_st = diag.get("fetch_stage", {}).get("status")
+                
+                if fetch_st in ("success", "completed", "empty_response"):
+                    success_cnt += 1
+                else:
+                    failed_cnt += 1
 
-    logger.info(f"Sweep complete: {len(all_records)} total live fare records collected across all corridors.")
+                all_records.extend(records)
+                job_results.append({
+                    "corridor": f"{origin}-{destination}",
+                    "horizon": horizon,
+                    "target_date": diag.get("departure_date"),
+                    "status": fetch_st,
+                    "flight_groups": diag.get("fetch_stage", {}).get("flight_groups", 0),
+                    "parsed_records": len(records),
+                    "skipped_records": diag.get("parse_stage", {}).get("skipped_offers", 0),
+                    "elapsed_ms": diag.get("fetch_stage", {}).get("elapsed_ms", 0),
+                    "error": diag.get("fetch_stage", {}).get("error"),
+                })
+            except Exception as route_exc:
+                failed_cnt += 1
+                logger.error(
+                    f"[CORRIDOR_SWEEP_ERROR] Route {origin}->{destination} T-{horizon} failed: {route_exc}\n"
+                    f"{traceback.format_exc()}"
+                )
+                job_results.append({
+                    "corridor": f"{origin}-{destination}",
+                    "horizon": horizon,
+                    "status": "failed",
+                    "error": {"type": type(route_exc).__name__, "message": str(route_exc)},
+                })
+
+    summary = {
+        "timestamp": now.isoformat(),
+        "total_jobs": total_jobs,
+        "success_jobs": success_cnt,
+        "failed_jobs": failed_cnt,
+        "total_records_generated": len(all_records),
+        "job_details": job_results,
+    }
+
+    logger.info(
+        f"\n=======================================================\n"
+        f"  VAYU SWEEP SUMMARY\n"
+        f"=======================================================\n"
+        f"  SUCCESS : {success_cnt}\n"
+        f"  FAILED  : {failed_cnt}\n"
+        f"  TOTAL   : {total_jobs}\n"
+        f"  RECORDS : {len(all_records)} total live fares generated\n"
+        f"======================================================="
+    )
+
+    return all_records, summary
+
+
+def fetch_all_corridors() -> List[RawFareRecord]:
+    all_records, _ = fetch_all_corridors_with_summary()
     return all_records
 
 
 if __name__ == "__main__":
     import json
-    data = fetch_all_corridors()
-    print(f"\n--- COLLECTED {len(data)} LIVE FARES ---")
-    print(json.dumps([r.model_dump(mode="json") for r in data[:3]], indent=2, default=str))
+    records, summary = fetch_all_corridors_with_summary()
+    print(f"\n--- SWEEP SUMMARY ---")
+    print(json.dumps(summary, indent=2, default=str))
