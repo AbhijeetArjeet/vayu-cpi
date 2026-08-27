@@ -461,13 +461,10 @@ def fetch_all_observations(mode: str = "combined") -> list[FareObservation]:
     try:
         q = session.query(FareObservation)
         if mode == "live":
-            live_records = q.filter(FareObservation.is_live == True).all()
-            if not live_records:
-                return q.order_by(FareObservation.id.desc()).limit(2000).all()
-            return live_records
+            q = q.filter(FareObservation.is_live == True)
         elif mode == "historical":
-            return q.filter(FareObservation.is_historical == True).all()
-        return q.all()
+            q = q.filter(FareObservation.is_historical == True)
+        return q.order_by(FareObservation.id.desc()).limit(1500).all()
     finally:
         session.close()
 
