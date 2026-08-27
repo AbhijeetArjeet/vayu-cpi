@@ -7,6 +7,7 @@ build/
 .env
 *.log
 *.db
-data/
+/data/
+!web/app/data/
 node_modules/
 .next/

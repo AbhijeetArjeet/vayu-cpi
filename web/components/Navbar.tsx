@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Zap,
   RefreshCw,
+  BookOpen,
 } from "lucide-react";
 import { triggerLiveSweep, fetchMarketCoverage } from "../lib/api";
 
@@ -73,6 +74,7 @@ export default function Navbar() {
     { name: "Forecast", href: "/forecast", icon: TrendingUp },
     { name: "Historical", href: "/historical", icon: TrendingUp },
     { name: "Datasets", href: "/data", icon: Zap },
+    { name: "Methodology", href: "/methodology", icon: BookOpen },
     { name: "Admin Portal", href: "/admin", icon: Shield },
   ];
 
