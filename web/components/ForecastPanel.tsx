@@ -1,31 +1,36 @@
 "use client";
 
 import React, { useState } from "react";
-import { TrendingUp, Clock, AlertCircle, ShoppingBag, CheckCircle, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { TrendingUp, Clock, ShoppingBag, ArrowUpRight, ArrowDownRight, CheckCircle2 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
 
 interface ForecastPanelProps {
   corridor?: string;
   currentFare?: number;
+  jevonsIndex?: number;
 }
 
 export default function ForecastPanel({
   corridor = "DEL-BOM",
   currentFare = 6074,
+  jevonsIndex = 144.6,
 }: ForecastPanelProps) {
   const [selectedHorizon, setSelectedHorizon] = useState<"7D" | "14D">("7D");
 
-  // Dynamic forecast data simulation based on real fare
+  // Deterministic forecast decision rule
+  // If current fare / Jevons index is > 115 (elevated spot pricing), recommend BOOK NOW
+  const isElevatedSpot = jevonsIndex >= 115.0;
+  const recommendation = isElevatedSpot ? "BOOK NOW" : "WAIT / MONITOR";
+  const expectedChangePct = isElevatedSpot ? 18 : 2;
+  const confidenceScore = isElevatedSpot ? 78 : 85;
+
   const forecastData = [
     { day: "Today (Actual)", fare: currentFare, type: "actual" },
-    { day: "+1D", fare: Math.round(currentFare * 1.03), lower: Math.round(currentFare * 1.01), upper: Math.round(currentFare * 1.05), type: "forecast" },
-    { day: "+3D", fare: Math.round(currentFare * 1.09), lower: Math.round(currentFare * 1.05), upper: Math.round(currentFare * 1.13), type: "forecast" },
-    { day: "+7D", fare: Math.round(currentFare * 1.18), lower: Math.round(currentFare * 1.12), upper: Math.round(currentFare * 1.24), type: "forecast" },
-    { day: "+14D", fare: Math.round(currentFare * 1.32), lower: Math.round(currentFare * 1.22), upper: Math.round(currentFare * 1.40), type: "forecast" },
+    { day: "+1D", fare: Math.round(currentFare * (1 + (expectedChangePct * 0.15) / 100)), type: "projection" },
+    { day: "+3D", fare: Math.round(currentFare * (1 + (expectedChangePct * 0.5) / 100)), type: "projection" },
+    { day: "+7D", fare: Math.round(currentFare * (1 + expectedChangePct / 100)), type: "projection" },
+    { day: "+14D", fare: Math.round(currentFare * (1 + (expectedChangePct * 1.6) / 100)), type: "projection" },
   ];
-
-  const expectedIncrease = 18; // +18% over 7 days
-  const confidenceScore = 78;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -34,14 +39,19 @@ export default function ForecastPanel({
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-blue-500" />
-            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm tracking-wide">
-              {corridor} AIRFARE FORECAST TRAJECTORY
-            </h3>
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm tracking-wide">
+                {corridor} AIRFARE TREND PROJECTION
+              </h3>
+              <span className="text-[10px] font-mono text-slate-400">
+                Extrapolated from Base 2024 Geometric Mean & Horizon Differential
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 font-mono">
             <button
               onClick={() => setSelectedHorizon("7D")}
-              className={`px-2.5 py-1 text-xs font-mono rounded ${
+              className={`px-2.5 py-1 text-xs rounded ${
                 selectedHorizon === "7D"
                   ? "bg-blue-600 text-white font-bold"
                   : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
@@ -51,7 +61,7 @@ export default function ForecastPanel({
             </button>
             <button
               onClick={() => setSelectedHorizon("14D")}
-              className={`px-2.5 py-1 text-xs font-mono rounded ${
+              className={`px-2.5 py-1 text-xs rounded ${
                 selectedHorizon === "14D"
                   ? "bg-blue-600 text-white font-bold"
                   : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
@@ -71,7 +81,7 @@ export default function ForecastPanel({
               <YAxis stroke="#94a3b8" fontSize={11} domain={["dataMin - 500", "dataMax + 500"]} />
               <Tooltip
                 contentStyle={{ backgroundColor: "#0b1329", borderColor: "#1e293b", color: "#ffffff", borderRadius: "8px", fontSize: "12px" }}
-                formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, "Expected Fare"]}
+                formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, "Projected Spot Fare"]}
               />
               <ReferenceLine x="Today (Actual)" stroke="#3b82f6" strokeDasharray="3 3" label={{ value: "Current Date", fill: "#3b82f6", fontSize: 10 }} />
               <Line type="monotone" dataKey="fare" stroke="#3b82f6" strokeWidth={3} dot={{ r: 5, fill: "#3b82f6" }} />
@@ -81,9 +91,9 @@ export default function ForecastPanel({
 
         <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800">
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-blue-500" /> Historical Actuals vs Econometric ARIMA/XGB Forecast
+            <span className="h-2 w-2 rounded-full bg-blue-500" /> Historical Actuals vs Trend Extrapolation
           </span>
-          <span>Base 2024 Adjusted</span>
+          <span>Deterministic Horizon Modeling</span>
         </div>
       </div>
 
@@ -92,37 +102,44 @@ export default function ForecastPanel({
         <div className="space-y-4 z-10">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <span className="text-xs font-mono font-bold tracking-wider text-blue-400 uppercase flex items-center gap-1.5">
-              <ShoppingBag className="h-4 w-4" /> TRAVELLER DECISION ENGINE
+              <ShoppingBag className="h-4 w-4" /> TRAVELLER DECISION RULE
             </span>
             <span className="px-2 py-0.5 text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded">
-              LIVE RECOMMENDATION
+              DETERMINISTIC
             </span>
           </div>
 
           <div className="space-y-1 text-center py-2">
             <span className="text-xs text-slate-400 font-mono">RECOMMENDED ACTION</span>
-            <div className="text-3xl font-black tracking-tight text-amber-400 font-mono bg-amber-500/10 py-3 rounded-xl border border-amber-500/30 flex items-center justify-center gap-2">
-              <Clock className="h-6 w-6 animate-pulse" />
-              <span>BOOK NOW</span>
+            <div
+              className={`text-3xl font-black tracking-tight py-3 rounded-xl border flex items-center justify-center gap-2 font-mono ${
+                isElevatedSpot
+                  ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
+                  : "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+              }`}
+            >
+              {isElevatedSpot ? <Clock className="h-6 w-6 animate-pulse text-amber-400" /> : <CheckCircle2 className="h-6 w-6 text-emerald-400" />}
+              <span>{recommendation}</span>
             </div>
           </div>
 
           <div className="space-y-2 text-xs font-mono pt-1">
             <div className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-              <span className="text-slate-400">Expected 7-Day Fare Increase:</span>
-              <span className="font-bold text-rose-400 flex items-center gap-0.5">
-                <ArrowUpRight className="h-3.5 w-3.5" /> +{expectedIncrease}%
+              <span className="text-slate-400">Expected 7-Day Change:</span>
+              <span className={`font-bold flex items-center gap-0.5 ${isElevatedSpot ? "text-rose-400" : "text-emerald-400"}`}>
+                {isElevatedSpot ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+                {expectedChangePct >= 0 ? `+${expectedChangePct}%` : `${expectedChangePct}%`}
               </span>
             </div>
             <div className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-              <span className="text-slate-400">Model Confidence:</span>
+              <span className="text-slate-400">Rule Confidence:</span>
               <span className="font-bold text-emerald-400">{confidenceScore}%</span>
             </div>
           </div>
         </div>
 
         <p className="text-[10px] text-slate-400 font-mono pt-4 border-t border-slate-800 text-center">
-          Fares on {corridor} expected to reach ₹{Math.round(currentFare * 1.18).toLocaleString()} by next week.
+          {corridor} spot index is {jevonsIndex.toFixed(1)} (Base = 100).
         </p>
       </div>
     </div>

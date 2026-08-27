@@ -8,7 +8,6 @@ import {
   Plane,
   BarChart3,
   Shield,
-  Activity,
   Sun,
   Moon,
   TrendingUp,
@@ -21,14 +20,12 @@ export default function Navbar() {
   const pathname = usePathname();
   const { theme, toggleTheme, demoMode, setDemoMode, lastUpdated, setLastUpdated } = useVayuTheme();
   const [isSweeping, setIsSweeping] = useState(false);
-  const [timeAgo, setTimeAgo] = useState("Just now");
+  const [minutesAgo, setMinutesAgo] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const seconds = Math.floor((Date.now() - new Date().getTime()) / 1000);
-      if (seconds < 10) setTimeAgo("Just now");
-      else setTimeAgo(`${seconds}s ago`);
-    }, 5000);
+      setMinutesAgo((prev) => prev + 1);
+    }, 60000);
     return () => clearInterval(timer);
   }, []);
 
@@ -37,13 +34,28 @@ export default function Navbar() {
     try {
       const res = await triggerLiveSweep();
       setLastUpdated(new Date().toLocaleTimeString());
-      setTimeAgo("Just now");
+      setMinutesAgo(0);
     } catch (e) {
       console.error(e);
     } finally {
       setIsSweeping(false);
     }
   };
+
+  // Freshness thresholds
+  let statusColor = "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+  let statusText = "LIVE";
+  let dotBg = "bg-emerald-500";
+
+  if (minutesAgo >= 360 && minutesAgo < 1440) {
+    statusColor = "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20";
+    statusText = "STALE (6H+)";
+    dotBg = "bg-amber-500";
+  } else if (minutesAgo >= 1440) {
+    statusColor = "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20";
+    statusText = "OFFLINE (24H+)";
+    dotBg = "bg-rose-500";
+  }
 
   const navLinks = [
     { name: "Overview", href: "/", icon: Plane },
@@ -102,15 +114,15 @@ export default function Navbar() {
 
           {/* Status & Control Widgets */}
           <div className="flex items-center space-x-3">
-            {/* Live Indicator */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-mono">
+            {/* Live Indicator with thresholds */}
+            <div className={`hidden sm:flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono ${statusColor}`}>
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${dotBg}`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${dotBg}`}></span>
               </span>
-              <span className="font-semibold">LIVE</span>
-              <span className="text-[10px] text-slate-400 border-l border-emerald-500/30 pl-2">
-                {timeAgo}
+              <span className="font-semibold">{statusText}</span>
+              <span className="text-[10px] opacity-70 border-l border-current pl-2">
+                {minutesAgo === 0 ? "Just now" : `${minutesAgo}m ago`}
               </span>
             </div>
 
