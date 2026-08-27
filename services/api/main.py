@@ -26,21 +26,31 @@ app = FastAPI(
     version="0.1.0",
 )
 
-origins = [
-    "https://vayu-cpi.vercel.app",
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:3000",
-]
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+from fastapi import Request
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:\d+|http://127\.0\.0\.1:\d+",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+class DynamicCORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        origin = request.headers.get("origin")
+        if request.method == "OPTIONS":
+            res = Response(status_code=200)
+            if origin:
+                res.headers["Access-Control-Allow-Origin"] = origin
+                res.headers["Access-Control-Allow-Credentials"] = "true"
+                res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+                res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Admin-Token, Cookie"
+            return res
+
+        response = await call_next(request)
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Admin-Token, Cookie"
+        return response
+
+app.add_middleware(DynamicCORSMiddleware)
 
 # --- Routes ---
 from services.api.routes_cpi import router as cpi_router
