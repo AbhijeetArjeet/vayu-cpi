@@ -472,6 +472,82 @@ function SkyviewContent() {
     else if (dBeta > 18) triggerRegionDiscovery("SOUTH", "BLR");
   }, [triggerRegionDiscovery]);
 
+  // Mobile Touch Navigation State
+  const touchStartPos = useRef<{ x: number; y: number; dist?: number } | null>(null);
+
+  // Single-touch Pan & Two-finger Pinch Zoom for Mobile
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartPos.current = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2, dist };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!touchStartPos.current) return;
+
+    if (e.touches.length === 1) {
+      const dx = e.touches[0].clientX - touchStartPos.current.x;
+      const dy = e.touches[0].clientY - touchStartPos.current.y;
+
+      targetCamera.current.heading += dx * 0.18;
+      targetCamera.current.tilt = Math.max(20, Math.min(80, targetCamera.current.tilt - dy * 0.14));
+
+      touchStartPos.current.x = e.touches[0].clientX;
+      touchStartPos.current.y = e.touches[0].clientY;
+
+      if (dx < -30) triggerRegionDiscovery("WEST", "BOM");
+      else if (dx > 30) triggerRegionDiscovery("EAST", "CCU");
+      else if (dy < -30) triggerRegionDiscovery("NORTH", "DEL");
+      else if (dy > 30) triggerRegionDiscovery("SOUTH", "BLR");
+    } else if (e.touches.length === 2 && touchStartPos.current.dist) {
+      const newDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const scale = newDist / touchStartPos.current.dist;
+      targetCamera.current.range = Math.max(350000, Math.min(4500000, targetCamera.current.range / scale));
+      touchStartPos.current.dist = newDist;
+    }
+  };
+
+  // Fly to Geographic Sector
+  const flyToSector = (sector: "NORTH" | "WEST" | "SOUTH" | "EAST" | "INDIA") => {
+    if (!map3dInstanceRef.current) return;
+    let target = { lat: 21.5, lng: 78.9, tilt: 52, heading: 0, range: 2600000 };
+
+    if (sector === "NORTH") {
+      target = { lat: 28.6, lng: 77.2, tilt: 58, heading: 15, range: 900000 };
+      triggerRegionDiscovery("NORTH", "DEL");
+    } else if (sector === "WEST") {
+      target = { lat: 19.1, lng: 72.9, tilt: 56, heading: -20, range: 900000 };
+      triggerRegionDiscovery("WEST", "BOM");
+    } else if (sector === "SOUTH") {
+      target = { lat: 13.2, lng: 77.7, tilt: 55, heading: 5, range: 950000 };
+      triggerRegionDiscovery("SOUTH", "BLR");
+    } else if (sector === "EAST") {
+      target = { lat: 22.7, lng: 88.4, tilt: 54, heading: 30, range: 950000 };
+      triggerRegionDiscovery("EAST", "CCU");
+    }
+
+    if (typeof map3dInstanceRef.current.flyCameraTo === "function") {
+      map3dInstanceRef.current.flyCameraTo({
+        endCamera: {
+          center: { lat: target.lat, lng: target.lng, altitude: 0 },
+          tilt: target.tilt,
+          heading: target.heading,
+          range: target.range,
+        },
+        durationMillis: 1600,
+      });
+    }
+  };
+
   // Handle Desktop Mouse Move Simulation
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!mapContainerRef.current) return;
@@ -504,7 +580,7 @@ function SkyviewContent() {
             window.addEventListener("deviceorientation", handleOrientation);
           }
         } catch {
-          // Continue to desktop/mouse fallback
+          // Continue to touch fallback
         }
       } else {
         window.addEventListener("deviceorientation", handleOrientation);
@@ -687,8 +763,10 @@ function SkyviewContent() {
 
       {/* 3. GOOGLE MAPS 3D CANVAS OR BEAUTIFUL FALLBACK */}
       <div
-        className="w-full h-full min-h-[calc(100dvh-4rem)] relative flex items-center justify-center cursor-grab active:cursor-grabbing"
+        className="w-full h-full min-h-[calc(100dvh-4rem)] relative flex items-center justify-center cursor-grab active:cursor-grabbing touch-none"
         onMouseMove={handleMouseMove}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
       >
         {googleMapsError ? (
           /* Elegant Fallback Mode when API Key is missing or 3D is unavailable (Part 40) */
@@ -722,6 +800,40 @@ function SkyviewContent() {
           /* Google Maps 3D Element Container */
           <div ref={mapContainerRef} className="w-full h-full min-h-[calc(100dvh-4rem)] absolute inset-0" />
         )}
+      </div>
+
+      {/* Floating Quick Geographic Sector Touch Jump Pill */}
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-32 sm:bottom-40 z-30 flex items-center gap-1 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-full p-1 shadow-2xl font-mono text-[10px]">
+        <button
+          onClick={() => flyToSector("INDIA")}
+          className="px-2.5 py-1 rounded-full text-slate-300 hover:text-white hover:bg-slate-800 transition-all font-bold"
+        >
+          🌐 ALL INDIA
+        </button>
+        <button
+          onClick={() => flyToSector("NORTH")}
+          className="px-2 py-1 rounded-full text-blue-400 hover:text-white hover:bg-blue-600/30 transition-all font-bold"
+        >
+          DEL
+        </button>
+        <button
+          onClick={() => flyToSector("WEST")}
+          className="px-2 py-1 rounded-full text-amber-400 hover:text-white hover:bg-amber-600/30 transition-all font-bold"
+        >
+          BOM
+        </button>
+        <button
+          onClick={() => flyToSector("SOUTH")}
+          className="px-2 py-1 rounded-full text-emerald-400 hover:text-white hover:bg-emerald-600/30 transition-all font-bold"
+        >
+          BLR
+        </button>
+        <button
+          onClick={() => flyToSector("EAST")}
+          className="px-2 py-1 rounded-full text-purple-400 hover:text-white hover:bg-purple-600/30 transition-all font-bold"
+        >
+          CCU
+        </button>
       </div>
 
       {/* 4. DESKTOP FLOATING MAP CONTROLS & LAYERS (Hidden on mobile to keep map clean) */}
