@@ -11,11 +11,6 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Body, HTTPException, Query
 
 from core.schemas import ImportValidationReport, RawFareRecord
-from services.api.admin_security import (
-    verify_admin_access,
-    generate_admin_otp,
-    verify_admin_otp,
-)
 from services.engine.historical_engine import validate_historical_dataset
 from services.persistence.db import (
     SessionLocal,
@@ -25,7 +20,7 @@ from services.persistence.db import (
 )
 from core.dgca_weights import ALL_CORRIDORS
 
-router = APIRouter(prefix="/api/v1/admin", tags=["VAYU System Administration & Ingestion Engine"])
+router = APIRouter(prefix="/api/v1/admin", tags=["VAYU System Control Center"])
 
 # In-memory sweep status tracking
 SWEEP_STATE = {
@@ -42,20 +37,7 @@ SWEEP_STATE = {
 }
 
 
-@router.post("/auth/login")
-async def admin_login(password: str = Body(..., embed=True)):
-    """Stage 1: Validates admin password and generates a 6-digit OTP verification code."""
-    return generate_admin_otp(password)
-
-
-@router.post("/auth/verify-otp")
-async def admin_verify_otp(otp: str = Body(..., embed=True)):
-    """Stage 2: Verifies 6-digit OTP code and returns an admin session token."""
-    return verify_admin_otp(otp)
-
-
-
-@router.get("/sweep-status", dependencies=[Depends(verify_admin_access)])
+@router.get("/sweep-status")
 async def get_sweep_status():
     """Returns bulk live collection status, frequency, and sweep health metrics."""
     return {
@@ -66,7 +48,7 @@ async def get_sweep_status():
     }
 
 
-@router.post("/trigger-sweep", dependencies=[Depends(verify_admin_access)])
+@router.post("/trigger-sweep")
 async def trigger_admin_sweep(frequency_minutes: Optional[int] = Query(None)):
     """Triggers bulk live collection sweep across all configured corridors and horizons (T-30, T-7, T-1)."""
     if frequency_minutes:
@@ -101,18 +83,18 @@ async def trigger_admin_sweep(frequency_minutes: Optional[int] = Query(None)):
         return {"status": "error", "message": str(e)}
 
 
-@router.post("/validate-import", response_model=ImportValidationReport, dependencies=[Depends(verify_admin_access)])
+@router.post("/validate-import", response_model=ImportValidationReport)
 async def validate_import_payload(
     dataset_name: str = Body(...),
     source_type: str = Body("HISTORICAL_DATASET"),
     records: List[Dict[str, Any]] = Body(...),
 ):
-    """Stage 1 of Admin Import: Validates raw CSV/JSON records and returns a quality report preview."""
+    """Stage 1: Validates raw CSV/JSON records and returns a quality report preview."""
     report = validate_historical_dataset(records, dataset_name, source_type)
     return report
 
 
-@router.post("/confirm-import", dependencies=[Depends(verify_admin_access)])
+@router.post("/confirm-import")
 async def confirm_import_payload(
     dataset_id: str = Body(...),
     dataset_name: str = Body(...),

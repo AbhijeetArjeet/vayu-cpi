@@ -81,7 +81,7 @@ export default function ForecastPanel({
               <YAxis stroke="#94a3b8" fontSize={11} domain={["dataMin - 500", "dataMax + 500"]} />
               <Tooltip
                 contentStyle={{ backgroundColor: "#0b1329", borderColor: "#1e293b", color: "#ffffff", borderRadius: "8px", fontSize: "12px" }}
-                formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, "Projected Spot Fare"]}
+                formatter={(value: unknown) => [`₹${Number(value).toLocaleString()}`, "Projected Spot Fare"]}
               />
               <ReferenceLine x="Today (Actual)" stroke="#3b82f6" strokeDasharray="3 3" label={{ value: "Current Date", fill: "#3b82f6", fontSize: 10 }} />
               <Line type="monotone" dataKey="fare" stroke="#3b82f6" strokeWidth={3} dot={{ r: 5, fill: "#3b82f6" }} />

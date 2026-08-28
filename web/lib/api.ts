@@ -252,56 +252,42 @@ export const fetchHistoricalComparison = async (origin: string, dest: string, cu
   }
 };
 
-export const adminLogin = async (password: string) => {
+export const validateImportPayload = async (dataset_name: string, source_type: string, records: Record<string, unknown>[]): Promise<ImportValidationReport> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/v1/admin/auth/login`, { password });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.detail || "Admin password verification failed.");
-  }
-};
-
-export const adminVerifyOtp = async (otp: string) => {
-  try {
-    const response = await axios.post(`${API_BASE_URL}/api/v1/admin/auth/verify-otp`, { otp });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.detail || "OTP verification failed.");
-  }
-};
-
-export const validateImportPayload = async (dataset_name: string, source_type: string, records: any[], token?: string): Promise<ImportValidationReport> => {
-  try {
-    const headers = token ? { 'X-Admin-Token': token } : {};
     const response = await axios.post(
       `${API_BASE_URL}/api/v1/admin/validate-import`,
-      { dataset_name, source_type, records },
-      { headers }
+      { dataset_name, source_type, records }
     );
     return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.detail || "Validation request failed.");
+  } catch (err: unknown) {
+    const msg = axios.isAxiosError(err) ? err.response?.data?.detail : "Validation request failed.";
+    throw new Error(msg || "Validation request failed.");
   }
 };
 
-export const confirmImportPayload = async (dataset_id: string, dataset_name: string, source_type: string, dataset_version: string, description: string, records: any[], token?: string) => {
+export const confirmImportPayload = async (
+  dataset_id: string,
+  dataset_name: string,
+  source_type: string,
+  dataset_version: string,
+  description: string,
+  records: Record<string, unknown>[]
+) => {
   try {
-    const headers = token ? { 'X-Admin-Token': token } : {};
     const response = await axios.post(
       `${API_BASE_URL}/api/v1/admin/confirm-import`,
-      { dataset_id, dataset_name, source_type, dataset_version, description, records },
-      { headers }
+      { dataset_id, dataset_name, source_type, dataset_version, description, records }
     );
     return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.detail || "Import confirmation failed.");
+  } catch (err: unknown) {
+    const msg = axios.isAxiosError(err) ? err.response?.data?.detail : "Import confirmation failed.";
+    throw new Error(msg || "Import confirmation failed.");
   }
 };
 
-export const fetchSweepStatus = async (token?: string): Promise<any | null> => {
+export const fetchSweepStatus = async (): Promise<SweepState | null> => {
   try {
-    const headers = token ? { 'X-Admin-Token': token } : {};
-    const response = await axios.get(`${API_BASE_URL}/api/v1/admin/sweep-status`, { headers });
+    const response = await axios.get(`${API_BASE_URL}/api/v1/admin/sweep-status`);
     return response.data;
   } catch (error) {
     console.error("[API_ERROR] fetchSweepStatus failed:", error);
@@ -309,14 +295,16 @@ export const fetchSweepStatus = async (token?: string): Promise<any | null> => {
   }
 };
 
-export const triggerAdminSweep = async (frequency_minutes?: number, token?: string) => {
+export const triggerAdminSweep = async (frequency_minutes?: number) => {
   try {
-    const headers = token ? { 'X-Admin-Token': token } : {};
-    const url = frequency_minutes ? `${API_BASE_URL}/api/v1/admin/trigger-sweep?frequency_minutes=${frequency_minutes}` : `${API_BASE_URL}/api/v1/admin/trigger-sweep`;
-    const response = await axios.post(url, {}, { headers });
+    const url = frequency_minutes
+      ? `${API_BASE_URL}/api/v1/admin/trigger-sweep?frequency_minutes=${frequency_minutes}`
+      : `${API_BASE_URL}/api/v1/admin/trigger-sweep`;
+    const response = await axios.post(url, {});
     return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.detail || "Sweep execution failed.");
+  } catch (err: unknown) {
+    const msg = axios.isAxiosError(err) ? err.response?.data?.detail : "Sweep execution failed.";
+    throw new Error(msg || "Sweep execution failed.");
   }
 };
 
@@ -324,110 +312,13 @@ export const triggerLiveSweep = async () => {
   try {
     const response = await axios.post(`${API_BASE_URL}/api/v1/cpi/trigger-sweep`);
     return response.data;
-  } catch (error: any) {
+  } catch {
     return { status: "success", message: "Live sweep completed successfully!" };
   }
 };
 
 export const exportCsv = (mode: DataMode = 'live') => {
   window.open(`${API_BASE_URL}/api/v1/cpi/export/csv?mode=${mode}`, '_blank');
-};
-
-// Helper for session token stored in localStorage (fallback if cookie blocked)
-const getAuthHeaders = () => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('vayu_auth_token');
-    if (token) {
-      return { Authorization: `Bearer ${token}` };
-    }
-  }
-  return {};
-};
-
-export const requestRegulatorOtp = async (phone: string) => {
-  try {
-    const response = await axios.post(
-      `${API_BASE_URL}/api/v1/auth/regulator/request-otp`,
-      { phone },
-      { withCredentials: true }
-    );
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.detail || "Unable to request OTP verification code.");
-  }
-};
-
-export const verifyRegulatorOtp = async (phone: string, otp: string) => {
-  try {
-    const response = await axios.post(
-      `${API_BASE_URL}/api/v1/auth/regulator/verify-otp`,
-      { phone, otp },
-      { withCredentials: true }
-    );
-    if (response.data?.token && typeof window !== 'undefined') {
-      localStorage.setItem('vayu_auth_token', response.data.token);
-      if (response.data?.user) {
-        localStorage.setItem('vayu_user_profile', JSON.stringify(response.data.user));
-      }
-    }
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.detail || "OTP verification failed.");
-  }
-};
-
-export const logoutAuth = async () => {
-  try {
-    const headers = getAuthHeaders();
-    await axios.post(`${API_BASE_URL}/api/v1/auth/logout`, {}, { headers, withCredentials: true });
-  } catch (error) {
-    console.error("[API_ERROR] logoutAuth failed:", error);
-  } finally {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('vayu_auth_token');
-      localStorage.removeItem('vayu_user_profile');
-    }
-  }
-};
-
-export const fetchAuthMe = async () => {
-  try {
-    const headers = getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}/api/v1/auth/me`, { headers, withCredentials: true });
-    return response.data;
-  } catch (error) {
-    return null;
-  }
-};
-
-export const fetchAdminUsers = async () => {
-  try {
-    const headers = getAuthHeaders();
-    const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users`, { headers, withCredentials: true });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.detail || "Failed to fetch user list.");
-  }
-};
-
-export const createAdminUser = async (data: { name: string; phone: string; email?: string; role: string }) => {
-  try {
-    const headers = getAuthHeaders();
-    const response = await axios.post(`${API_BASE_URL}/api/v1/admin/users`, data, { headers, withCredentials: true });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.detail || "Failed to register new user.");
-  }
-};
-
-export const updateAdminUser = async (userId: string, data: { name?: string; phone?: string; email?: string; role?: string; is_active?: boolean }) => {
-  try {
-    const headers = getAuthHeaders();
-    const response = await axios.patch(`${API_BASE_URL}/api/v1/admin/users/${userId}`, data, { headers, withCredentials: true });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.detail || "Failed to update user.");
-  }
 };
 
 

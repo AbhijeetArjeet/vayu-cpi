@@ -89,16 +89,12 @@ from services.api.routes_dgca import router as dgca_router
 from services.api.routes_debug import router as debug_router
 from services.api.routes_data import router as data_router
 from services.api.routes_admin import router as admin_router
-from services.api.routes_auth import router as auth_router
-from services.api.routes_admin_users import router as admin_users_router
 
 app.include_router(cpi_router)
 app.include_router(dgca_router)
 app.include_router(debug_router)
 app.include_router(data_router)
 app.include_router(admin_router)
-app.include_router(auth_router)
-app.include_router(admin_users_router)
 
 
 

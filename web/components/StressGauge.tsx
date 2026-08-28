@@ -18,7 +18,7 @@ export default function StressGauge({
   const [animatedScore, setAnimatedScore] = useState(0);
 
   useEffect(() => {
-    let start = 0;
+    const start = 0;
     const end = Math.min(Math.max(score, 0), 100);
     const duration = 800; // ms
     const startTime = performance.now();

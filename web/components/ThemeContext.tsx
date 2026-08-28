@@ -24,9 +24,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString());
 
   useEffect(() => {
-    const saved = localStorage.getItem("vayu_theme") as ThemeMode;
+    const saved = localStorage.getItem("vayu_theme") as ThemeMode | null;
     if (saved) {
-      setTheme(saved);
       document.documentElement.classList.toggle("dark", saved === "dark");
     } else {
       document.documentElement.classList.add("dark");
