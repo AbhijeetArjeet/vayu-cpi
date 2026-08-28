@@ -360,6 +360,8 @@ function RoutesExplorerContent() {
         <ForecastPanel
           corridor={`${fromCode}-${toCode}`}
           currentFare={currentFare}
+          jevonsIndex={jevonsIndex}
+          routes={allRoutes}
         />
       </div>
 

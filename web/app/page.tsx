@@ -254,7 +254,19 @@ function CommandCenterContent() {
       <WhyIsThisHappening corridor={activeRouteCode} sigmaDeviation={sigmaDev} hhiScore={hhiScore} />
 
       {/* 13. Forecast Trajectory & Book Now Recommendation */}
-      <ForecastPanel corridor={activeRouteCode} currentFare={activeAlert?.current_fare ?? 0} />
+      <ForecastPanel
+        corridor={activeRouteCode}
+        currentFare={
+          routes.find((r) => `${r.origin}-${r.destination}` === activeRouteCode)?.current_geom_mean ||
+          activeAlert?.current_fare ||
+          6200
+        }
+        jevonsIndex={
+          routes.find((r) => `${r.origin}-${r.destination}` === activeRouteCode)?.jevons_index || 138.5
+        }
+        routes={routes}
+        onSelectCorridor={(c) => setSelectedCorridor(c)}
+      />
 
       {/* Reusable Route Intelligence Drawer */}
       <RouteDrawer corridor={drawerRoute} onClose={() => setDrawerRoute(null)} />

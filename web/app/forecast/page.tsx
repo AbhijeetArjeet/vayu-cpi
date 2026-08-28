@@ -35,7 +35,12 @@ export default function ForecastPage() {
       </div>
 
       {/* Main Forecast Panel */}
-      <ForecastPanel corridor={activeCorridor} currentFare={6074} />
+      <ForecastPanel
+        corridor={activeCorridor}
+        currentFare={mockRoutes.find((r) => `${r.origin}-${r.destination}` === activeCorridor)?.current_geom_mean || 6074}
+        jevonsIndex={mockRoutes.find((r) => `${r.origin}-${r.destination}` === activeCorridor)?.jevons_index || 144.6}
+        routes={mockRoutes}
+      />
 
       {/* Select Corridor Cards */}
       <RouteCards routes={mockRoutes} alerts={[]} />
