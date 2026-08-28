@@ -91,13 +91,16 @@ export default function IndiaRouteMap({ routes = [], alerts = [], mode = "live" 
   ]).map((r) => {
     const code = `${r.origin}-${r.destination}`;
     const alert = alerts.find((a) => a.corridor === code);
-    const sigmaDev = alert?.sigma_deviation ?? 0;
-    const stressScore = Math.min(100, Math.max(0, Math.round((r.jevons_index - 100) * 1.2 + sigmaDev * 8)));
+    const baseDev = Math.max(0, r.jevons_index - 100);
+    const indexStress = Math.min(60, (baseDev / 120) * 60);
+    const sigmaDev = alert ? alert.sigma_deviation : 0;
+    const anomalyStress = alert ? Math.min(40, (sigmaDev / 3.5) * 40) : 0;
+    const stressScore = Math.min(100, Math.max(10, Math.round(15 + indexStress + anomalyStress)));
     
     let stressCategory: "LOW" | "MODERATE" | "HIGH" | "CRITICAL" = "LOW";
-    if (stressScore >= 80 || alert?.severity === "CRITICAL") stressCategory = "CRITICAL";
-    else if (stressScore >= 65 || alert?.severity === "HIGH") stressCategory = "HIGH";
-    else if (stressScore >= 40 || alert?.severity === "MODERATE") stressCategory = "MODERATE";
+    if (stressScore >= 75 || alert?.severity === "CRITICAL") stressCategory = "CRITICAL";
+    else if (stressScore >= 55 || alert?.severity === "HIGH") stressCategory = "HIGH";
+    else if (stressScore >= 35 || alert?.severity === "MODERATE") stressCategory = "MODERATE";
 
     const isLive = mode === "live" || (mode === "combined" && r.sample_size > 15);
 

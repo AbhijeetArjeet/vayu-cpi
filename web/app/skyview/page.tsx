@@ -236,11 +236,14 @@ function SkyviewContent() {
     ];
   }, []);
 
-  // Calculate stress score (0-100)
+  // Calculate stress score (0-100) dynamically calibrated
   const currentFare = currentRoute?.current_geom_mean || 6074;
   const jevonsIndex = currentRoute?.jevons_index || 128.4;
-  const sigmaDev = currentAlert?.sigma_deviation ?? 1.8;
-  const stressScore = Math.min(100, Math.max(0, Math.round((jevonsIndex - 100) * 1.35 + sigmaDev * 8.2)));
+  const baseDev = Math.max(0, jevonsIndex - 100);
+  const indexStress = Math.min(60, (baseDev / 120) * 60);
+  const sigmaDev = currentAlert ? currentAlert.sigma_deviation : 0;
+  const anomalyStress = Math.min(40, (sigmaDev / 3.5) * 40);
+  const stressScore = Math.min(100, Math.max(10, Math.round(15 + indexStress + anomalyStress)));
 
   let stressLevel: "LOW" | "MODERATE" | "HIGH" | "CRITICAL" = "MODERATE";
   let stressColor = "text-amber-500 bg-amber-500/10 border-amber-500/30";
@@ -258,12 +261,15 @@ function SkyviewContent() {
   // Booking outlook calculation
   let bookingOutlook: "BOOK NOW" | "MONITOR" | "WAIT" = "MONITOR";
   let outlookDescription = "Fares are within historical corridor benchmark. Suitable for booking if travel dates are confirmed.";
-  if (stressScore >= 65 || Boolean(currentAlert)) {
+  if (stressScore >= 75 || (currentAlert && currentAlert.severity === "CRITICAL")) {
     bookingOutlook = "BOOK NOW";
     outlookDescription = "Tatkal spot pressure is accelerating. Booking now avoids higher intra-day price surges.";
   } else if (stressScore <= 35) {
     bookingOutlook = "BOOK NOW";
     outlookDescription = "Current airfare is below historical baseline. High consumer value window.";
+  } else if (stressScore >= 55) {
+    bookingOutlook = "MONITOR";
+    outlookDescription = "Elevated pricing observed. Monitor for 24-48 hours if advance booking window allows.";
   }
 
   // Route arc color according to map layer

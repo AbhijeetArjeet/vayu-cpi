@@ -157,10 +157,12 @@ function ObservatoryContent() {
     return routes.map((r) => {
       const code = `${r.origin}-${r.destination}`;
       const alert = alerts.find((a) => a.corridor === code);
-      const sigmaDev = alert?.sigma_deviation ?? 0;
-      
-      // Calculate realistic 0-100 stress score
-      const stressScore = Math.min(100, Math.max(0, Math.round((r.jevons_index - 100) * 1.25 + sigmaDev * 8.5)));
+      // Calculate realistic calibrated 0-100 stress score
+      const baseDev = Math.max(0, r.jevons_index - 100);
+      const indexStress = Math.min(60, (baseDev / 120) * 60);
+      const sigmaDev = alert ? alert.sigma_deviation : 0;
+      const anomalyStress = alert ? Math.min(40, (sigmaDev / 3.5) * 40) : 0;
+      const stressScore = Math.min(100, Math.max(10, Math.round(15 + indexStress + anomalyStress)));
       
       let stressLevel: "LOW" | "MODERATE" | "HIGH" | "CRITICAL" = "LOW";
       if (stressScore >= 75 || alert?.severity === "CRITICAL") stressLevel = "CRITICAL";
