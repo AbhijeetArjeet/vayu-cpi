@@ -11,6 +11,7 @@ import RouteCards from "../components/RouteCards";
 import TopMovers from "../components/TopMovers";
 import FarePressureMatrix from "../components/FarePressureMatrix";
 import RouteComparison from "../components/RouteComparison";
+import RouteContributionGrid from "../components/RouteContributionGrid";
 import RouteDrawer from "../components/RouteDrawer";
 import DataModeSelector from "../components/DataModeSelector";
 import DateRangeSelector, { DateRangeDays } from "../components/DateRangeSelector";
@@ -215,34 +216,16 @@ function CommandCenterContent() {
       {/* 8. Tracked Corridors Cards */}
       <RouteCards routes={routes} alerts={alerts} />
 
-      {/* 9. Contribution to National CPI Panel */}
-      <div className="glass-panel p-6 space-y-4 font-mono text-xs">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-          <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
-            <Layers className="h-4 w-4 text-blue-500" />
-            <span>ROUTE CONTRIBUTION TO NATIONAL AIRFARE INFLATION ({cpiData?.data_mode?.toUpperCase() || "LIVE"})</span>
-          </div>
-          <span className="text-slate-400">
-            Total Composite Index: {cpiData ? `${cpiData.composite_index} Pts` : "Unavailable"}
-          </span>
-        </div>
-
-        {contributors.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-            {contributors.map((c, i) => (
-              <div key={i} className="p-3 rounded-lg bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-1 text-center">
-                <span className="font-bold text-slate-900 dark:text-white block">{c.corridor}</span>
-                <span className="text-[10px] text-slate-400 block">Weight: {(c.weight * 100).toFixed(0)}%</span>
-                <span className="font-bold text-blue-500 block">+{c.contributionPoints} pts</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-4 text-center text-slate-500 border border-dashed border-slate-800 rounded-lg">
-            Insufficient route data for CPI contribution calculation.
-          </div>
-        )}
-      </div>
+      {/* 9. Contribution to National CPI Panel with Live Search & Horizon Filter */}
+      <RouteContributionGrid
+        routes={routes}
+        compositeIndex={cpiData?.composite_index || 180.03}
+        dataMode={cpiData?.data_mode?.toUpperCase() || "LIVE"}
+        onSelectCorridor={(c) => {
+          setSelectedCorridor(c);
+          setDrawerRoute(c);
+        }}
+      />
 
       {/* 10. Regulatory Risk Matrix */}
       <FarePressureMatrix routes={routes} onSelectCorridor={(c) => { setSelectedCorridor(c); setDrawerRoute(c); }} />

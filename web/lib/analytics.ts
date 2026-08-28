@@ -26,6 +26,11 @@ export interface BookingRecommendation {
 
 export interface CpiContributor {
   corridor: string;
+  origin?: string;
+  destination?: string;
+  horizonDays?: number;
+  bookingWindow?: string;
+  currentFare?: number;
   weight: number;
   jevonsIndex: number;
   contributionPoints: number;
@@ -150,12 +155,26 @@ export function calculateBookingDecision(
  * Calculates per-route contribution to National Airfare CPI.
  */
 export function calculateCpiContributions(
-  routes: Array<{ corridor: string; weight: number; jevonsIndex: number }>
+  routes: Array<{
+    corridor: string;
+    origin?: string;
+    destination?: string;
+    horizonDays?: number;
+    bookingWindow?: string;
+    currentFare?: number;
+    weight: number;
+    jevonsIndex: number;
+  }>
 ): CpiContributor[] {
   return routes.map((r) => {
     const contributionPoints = Number((r.weight * (r.jevonsIndex - 100)).toFixed(2));
     return {
       corridor: r.corridor,
+      origin: r.origin,
+      destination: r.destination,
+      horizonDays: r.horizonDays,
+      bookingWindow: r.bookingWindow,
+      currentFare: r.currentFare,
       weight: r.weight,
       jevonsIndex: r.jevonsIndex,
       contributionPoints,
