@@ -106,6 +106,7 @@ function SkyviewContent() {
   const [isMotionEnabled, setIsMotionEnabled] = useState(false);
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
   const [discoveredRegion, setDiscoveredRegion] = useState<string | null>(null);
   const [discoveryToast, setDiscoveryToast] = useState<string | null>(null);
 
@@ -517,68 +518,140 @@ function SkyviewContent() {
   };
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] bg-slate-950 text-slate-100 font-sans overflow-hidden select-none pb-24">
-      {/* 1. TOP FLOATING TELEMETRY HUD (Part 18) */}
-      <div className="absolute top-3 left-3 right-3 z-30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 font-mono text-xs pointer-events-auto">
-        {/* Left: Brand + Status + Discovery */}
-        <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl px-3.5 py-2 shadow-xl">
-          <Compass className="h-4 w-4 text-blue-400 animate-spin-slow" />
-          <span className="font-bold tracking-wider text-white">VAYU SKYVIEW</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
-            GOOGLE 3D
-          </span>
-          <span className="text-slate-500 text-[11px] hidden md:inline">• Photorealistic Aviation Surface</span>
-        </div>
+    <div className="relative min-h-[calc(100dvh-4rem)] bg-slate-950 text-slate-100 font-sans overflow-hidden select-none pb-20 touch-manipulation">
+      {/* 1. TOP FLOATING TELEMETRY HUD (Mobile Optimized) */}
+      <div className="absolute top-2 left-2 right-2 z-30 flex flex-col gap-2 font-mono text-xs pointer-events-auto">
+        {/* Unified Mobile / Desktop Bar */}
+        <div className="flex items-center justify-between gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-2 shadow-xl">
+          {/* Brand + Status */}
+          <div className="flex items-center gap-2">
+            <Compass className="h-4 w-4 text-blue-400 animate-spin-slow shrink-0" />
+            <span className="font-bold tracking-wider text-white text-xs">VAYU SKYVIEW</span>
+            <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
+              3D
+            </span>
+          </div>
 
-        {/* Right: Real Telemetry Counters */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl px-3.5 py-2 shadow-xl overflow-x-auto text-[11px]">
-          <div>
-            <span className="text-slate-500 text-[9px] block">COMPOSITE CPI</span>
-            <strong className="text-white text-xs">{cpi?.composite_index?.toFixed(2) || "174.69"}</strong>
-          </div>
-          <div className="hidden sm:block">
-            <span className="text-slate-500 text-[9px] block">ADV / SPOT</span>
-            <strong className="text-purple-400">{cpi?.advance_sub_index?.toFixed(1) || "198.8"}</strong> / <strong className="text-emerald-400">{cpi?.spot_sub_index?.toFixed(1) || "135.4"}</strong>
-          </div>
-          <div>
-            <span className="text-slate-500 text-[9px] block">OBSERVATIONS</span>
-            <strong className="text-emerald-400">{coverage ? (coverage.live_observation_count + coverage.historical_observation_count).toLocaleString() : "8,607"}</strong>
-          </div>
-          <div className="hidden sm:block">
-            <span className="text-slate-500 text-[9px] block">CORRIDORS</span>
-            <strong className="text-blue-400">{coverage?.total_configured_routes || 12}</strong>
-          </div>
-          <div>
-            <span className="text-slate-500 text-[9px] block">COVERAGE</span>
-            <strong className="text-cyan-400">{coverage?.coverage_percentage || 54.5}%</strong>
+          {/* Key Metric Badges */}
+          <div className="flex items-center gap-2">
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg px-2 py-0.5 text-right">
+              <span className="text-[9px] text-slate-500 block leading-none">CPI</span>
+              <strong className="text-white text-xs">{cpi?.composite_index?.toFixed(1) || "174.7"}</strong>
+            </div>
+
+            {/* Mobile Filter Toggle Button */}
+            <button
+              onClick={() => setMobileControlsOpen(!mobileControlsOpen)}
+              className="sm:hidden px-2.5 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all"
+            >
+              <Sliders className="h-3 w-3" />
+              <span>{mapLayer}</span>
+            </button>
+
+            {/* Desktop Extended Telemetry Counters */}
+            <div className="hidden sm:flex items-center gap-3 text-[11px] border-l border-slate-800 pl-3">
+              <div>
+                <span className="text-slate-500 text-[9px] block">ADV / SPOT</span>
+                <strong className="text-purple-400">{cpi?.advance_sub_index?.toFixed(1) || "198.8"}</strong> / <strong className="text-emerald-400">{cpi?.spot_sub_index?.toFixed(1) || "135.4"}</strong>
+              </div>
+              <div>
+                <span className="text-slate-500 text-[9px] block">OBSERVATIONS</span>
+                <strong className="text-emerald-400">{coverage ? (coverage.live_observation_count + coverage.historical_observation_count).toLocaleString() : "8,607"}</strong>
+              </div>
+              <div>
+                <span className="text-slate-500 text-[9px] block">COVERAGE</span>
+                <strong className="text-cyan-400">{coverage?.coverage_percentage || 54.5}%</strong>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Mobile Controls Modal / Drawer */}
+      {mobileControlsOpen && (
+        <div className="sm:hidden absolute inset-x-2 top-14 z-30 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 shadow-2xl space-y-3 font-mono text-xs animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span className="text-[11px] font-bold text-slate-400 uppercase flex items-center gap-1.5">
+              <Layers className="h-3.5 w-3.5 text-blue-400" /> MAP LAYERS &amp; TIMELINE
+            </span>
+            <button
+              onClick={() => setMobileControlsOpen(false)}
+              className="text-slate-400 hover:text-white text-xs font-bold px-2 py-0.5 rounded bg-slate-800"
+            >
+              DONE
+            </button>
+          </div>
+
+          <div>
+            <span className="text-[10px] text-slate-500 block mb-1.5 uppercase">Visual Layer</span>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(['STRESS', 'AIRFARE', 'SURGES', 'COVERAGE'] as MapLayerType[]).map((layer) => (
+                <button
+                  key={layer}
+                  onClick={() => {
+                    setMapLayer(layer);
+                    setMobileControlsOpen(false);
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-center font-bold text-xs transition-all ${
+                    mapLayer === layer
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "bg-slate-800/80 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {layer}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-[10px] text-slate-500 block mb-1.5 uppercase">Timeline Window</span>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['24H', '7D', '30D', '90D'] as TimelineWindow[]).map((win) => (
+                <button
+                  key={win}
+                  onClick={() => {
+                    setTimelineWindow(win);
+                    setMobileControlsOpen(false);
+                  }}
+                  className={`py-1.5 rounded-lg text-center font-bold text-xs transition-all ${
+                    timelineWindow === win
+                      ? "bg-slate-800 text-blue-400 border border-blue-500/30"
+                      : "bg-slate-800/50 text-slate-500 hover:text-white"
+                  }`}
+                >
+                  {win}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Discovery Toast Notification */}
       {discoveryToast && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-blue-600/90 border border-blue-400 text-white font-mono text-xs font-bold px-4 py-2 rounded-full shadow-2xl animate-in fade-in slide-in-from-top-3 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-amber-300" />
+        <div className="absolute top-14 sm:top-16 left-1/2 -translate-x-1/2 z-40 bg-blue-600/90 border border-blue-400 text-white font-mono text-[11px] sm:text-xs font-bold px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-2xl animate-in fade-in slide-in-from-top-3 flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5 text-amber-300 shrink-0" />
           <span>{discoveryToast}</span>
         </div>
       )}
 
       {/* 2. INITIAL GYROSCOPE PERMISSION & CALIBRATION OVERLAY (Part 12 & 13) */}
       {!isMotionEnabled && (
-        <div className="absolute inset-0 z-40 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center font-mono">
-          <div className="glass-panel p-8 max-w-md w-full bg-slate-900 border-slate-800 rounded-3xl shadow-2xl space-y-6">
-            <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 inline-block">
-              {isCalibrating ? <RefreshCw className="h-10 w-10 animate-spin" /> : <Smartphone className="h-10 w-10 animate-bounce" />}
+        <div className="absolute inset-0 z-40 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center font-mono">
+          <div className="glass-panel p-6 sm:p-8 max-w-sm sm:max-w-md w-full bg-slate-900 border-slate-800 rounded-3xl shadow-2xl space-y-5">
+            <div className="p-3 sm:p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 inline-block">
+              {isCalibrating ? <RefreshCw className="h-8 w-8 sm:h-10 sm:w-10 animate-spin" /> : <Smartphone className="h-8 w-8 sm:h-10 sm:w-10 animate-bounce" />}
             </div>
 
             <div>
-              <span className="text-[10px] font-bold tracking-widest text-blue-400 uppercase">
+              <span className="text-[9px] sm:text-[10px] font-bold tracking-widest text-blue-400 uppercase">
                 GOOGLE MAPS 3D AIRFARE TELEMETRY
               </span>
-              <h2 className="text-2xl font-extrabold text-white tracking-tight mt-1">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mt-1">
                 VAYU SKYVIEW
               </h2>
-              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              <p className="text-[11px] sm:text-xs text-slate-400 mt-2 leading-relaxed">
                 {isCalibrating
                   ? "Calibrating neutral baseline orientation... Hold your device comfortably."
                   : "Explore India's airfare market on photorealistic 3D terrain. Move your phone to navigate aviation corridors and inspect real-time macroeconomic price stress."}
@@ -586,10 +659,10 @@ function SkyviewContent() {
             </div>
 
             {!isCalibrating && (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <button
                   onClick={enableMotion}
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2"
                 >
                   <Compass className="h-4 w-4" />
                   <span>ENABLE MOTION SENSORS</span>
@@ -605,7 +678,7 @@ function SkyviewContent() {
               </div>
             )}
 
-            <p className="text-[10px] text-slate-500 italic">
+            <p className="text-[9px] sm:text-[10px] text-slate-500 italic">
               Google Maps Platform 3D Maps • Photorealistic Surface • Zero sensor telemetry logged
             </p>
           </div>
@@ -614,32 +687,32 @@ function SkyviewContent() {
 
       {/* 3. GOOGLE MAPS 3D CANVAS OR BEAUTIFUL FALLBACK */}
       <div
-        className="w-full h-full min-h-[calc(100vh-4rem)] relative flex items-center justify-center cursor-grab active:cursor-grabbing"
+        className="w-full h-full min-h-[calc(100dvh-4rem)] relative flex items-center justify-center cursor-grab active:cursor-grabbing"
         onMouseMove={handleMouseMove}
       >
         {googleMapsError ? (
           /* Elegant Fallback Mode when API Key is missing or 3D is unavailable (Part 40) */
-          <div className="glass-panel p-8 max-w-lg mx-auto bg-slate-900/90 border-slate-800 rounded-3xl text-center space-y-5 font-mono">
+          <div className="glass-panel p-6 sm:p-8 max-w-lg mx-4 bg-slate-900/90 border-slate-800 rounded-3xl text-center space-y-4 font-mono">
             <div className="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-2xl inline-block">
-              <AlertTriangle className="h-8 w-8" />
+              <AlertTriangle className="h-7 w-7" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Google Maps 3D Photorealistic Surface</h3>
+              <h3 className="text-base sm:text-lg font-bold text-white">Google Maps 3D Photorealistic Surface</h3>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                 {googleMapsError} To enable full Google Earth photorealistic 3D terrain on this device, add your Google Maps API key to <code className="text-blue-400">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>.
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
               <Link
                 href="/observatory"
-                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
               >
                 <Compass className="h-4 w-4" />
                 <span>OPEN VAYU OBSERVATORY</span>
               </Link>
               <Link
                 href="/routes"
-                className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors"
+                className="w-full sm:w-auto px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors"
               >
                 EXPLORE ROUTES
               </Link>
@@ -647,12 +720,12 @@ function SkyviewContent() {
           </div>
         ) : (
           /* Google Maps 3D Element Container */
-          <div ref={mapContainerRef} className="w-full h-full min-h-[calc(100vh-4rem)] absolute inset-0" />
+          <div ref={mapContainerRef} className="w-full h-full min-h-[calc(100dvh-4rem)] absolute inset-0" />
         )}
       </div>
 
-      {/* 4. FLOATING MAP CONTROLS & LAYERS (Part 25 & 26) */}
-      <div className="absolute right-4 top-20 z-30 flex flex-col gap-2 font-mono text-xs">
+      {/* 4. DESKTOP FLOATING MAP CONTROLS & LAYERS (Hidden on mobile to keep map clean) */}
+      <div className="hidden sm:flex absolute right-4 top-16 z-30 flex-col gap-2 font-mono text-xs">
         {/* Layer Selector */}
         <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-2 flex flex-col gap-1 shadow-2xl">
           <span className="text-[10px] text-slate-500 uppercase px-1">LAYERS</span>
@@ -689,73 +762,73 @@ function SkyviewContent() {
           ))}
         </div>
 
-        {/* Data Source Badge (Part 27) */}
+        {/* Data Source Badge */}
         <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-emerald-400 flex items-center gap-1.5 shadow-xl">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           <span>LIVE VAYU DATA</span>
         </div>
       </div>
 
-      {/* 5. POLISHED EXPANDABLE BOTTOM SHEET (Part 20 & 21) */}
+      {/* 5. POLISHED EXPANDABLE BOTTOM SHEET (Mobile Optimized) */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 rounded-t-3xl shadow-2xl transition-all duration-300 ease-in-out font-mono ${
-          sheetExpanded ? "max-h-[85vh] overflow-y-auto" : "max-h-36"
+          sheetExpanded ? "max-h-[85dvh] overflow-y-auto" : "max-h-28 sm:max-h-36"
         }`}
       >
         {/* Drag / Expand Bar Handle */}
         <div
           onClick={() => setSheetExpanded(!sheetExpanded)}
-          className="w-full pt-3 pb-2 flex flex-col items-center cursor-pointer hover:bg-slate-800/40 transition-colors"
+          className="w-full pt-2.5 pb-1.5 flex flex-col items-center cursor-pointer hover:bg-slate-800/40 transition-colors"
         >
-          <div className="w-12 h-1.5 bg-slate-700 rounded-full mb-1.5" />
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-bold">
-            {sheetExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-            <span>{sheetExpanded ? "COLLAPSE INTEL" : "EXPAND FULL AIRFARE ANALYSIS"}</span>
+          <div className="w-10 h-1 bg-slate-700 rounded-full mb-1" />
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-400 font-bold">
+            {sheetExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+            <span>{sheetExpanded ? "COLLAPSE INTEL" : "EXPAND AIRFARE ANALYSIS"}</span>
           </div>
         </div>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-6 space-y-6">
-          {/* PRIMARY COMPACT HUD (Always Visible) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-center border-b border-slate-800/80 pb-4">
+        <div className="max-w-4xl mx-auto px-3 sm:px-6 pb-6 space-y-4 sm:space-y-6">
+          {/* PRIMARY COMPACT HUD */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 items-center border-b border-slate-800/80 pb-3">
             {/* Route & Horizon */}
             <div>
-              <span className="text-[10px] text-slate-500 block uppercase">CORRIDOR</span>
-              <div className="text-lg font-black text-white flex items-center gap-1.5">
+              <span className="text-[9px] sm:text-[10px] text-slate-500 block uppercase">CORRIDOR</span>
+              <div className="text-base sm:text-lg font-black text-white flex items-center gap-1">
                 <span>{currentRoute?.origin || "DEL"}</span>
-                <ArrowRight className="h-4 w-4 text-blue-400" />
+                <ArrowRight className="h-3.5 w-3.5 text-blue-400" />
                 <span>{currentRoute?.destination || "BOM"}</span>
               </div>
-              <span className="text-[10px] text-blue-400 font-bold">T-{currentRoute?.horizon_days || 7} Horizon</span>
+              <span className="text-[9px] sm:text-[10px] text-blue-400 font-bold">T-{currentRoute?.horizon_days || 7} Horizon</span>
             </div>
 
             {/* Current Observed Fare */}
             <div>
-              <span className="text-[10px] text-slate-500 block uppercase">CURRENT FARE</span>
-              <div className="text-2xl font-extrabold text-white tracking-tight">
-                ₹{currentFare.toLocaleString()}
+              <span className="text-[9px] sm:text-[10px] text-slate-500 block uppercase">CURRENT FARE</span>
+              <div className="text-lg sm:text-2xl font-extrabold text-white tracking-tight">
+                ₹{Math.round(currentFare).toLocaleString()}
               </div>
-              <span className="text-[10px] text-slate-400">Jevons: {jevonsIndex} Pts</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-400">Jevons: {jevonsIndex} Pts</span>
             </div>
 
             {/* Stress Score */}
             <div>
-              <span className="text-[10px] text-slate-500 block uppercase">MARKET STRESS</span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-extrabold text-white">{stressScore}</span>
-                <span className="text-xs text-slate-500">/ 100</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-500 block uppercase">MARKET STRESS</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg sm:text-2xl font-extrabold text-white">{stressScore}</span>
+                <span className="text-[10px] text-slate-500">/ 100</span>
               </div>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${stressColor}`}>
+              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${stressColor}`}>
                 {stressLevel}
               </span>
             </div>
 
             {/* Booking Outlook Action */}
             <div>
-              <span className="text-[10px] text-slate-500 block uppercase">OUTLOOK</span>
-              <div className="text-sm font-bold text-emerald-400 mt-0.5">
+              <span className="text-[9px] sm:text-[10px] text-slate-500 block uppercase">OUTLOOK</span>
+              <div className="text-xs sm:text-sm font-bold text-emerald-400 mt-0.5">
                 {bookingOutlook}
               </div>
-              <span className="text-[10px] text-slate-400 block truncate">{outlookDescription.slice(0, 30)}...</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-400 block truncate">{outlookDescription.slice(0, 24)}...</span>
             </div>
           </div>
 
