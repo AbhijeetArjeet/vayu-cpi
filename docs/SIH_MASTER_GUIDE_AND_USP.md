@@ -7,6 +7,89 @@
 
 ---
 
+## 0. Basics & Full Forms Reference Guide (Study This First!)
+
+Before diving into the architecture, memorize these core acronyms and definitions used across your website, API, and SIH evaluation:
+
+### Government & Organization Acronyms
+| Acronym | Full Form | What It Means / Role in Project |
+| :--- | :--- | :--- |
+| **VAYU-CPI** | **Virtual Airfare Yield & Utility — Consumer Price Index** | The official project name. (*Vayu* is also Sanskrit for Wind/Air). |
+| **NAFPI** | **National Airfare Price Index** | High-level index name for tracking nationwide domestic airfare inflation. |
+| **MoSPI** | **Ministry of Statistics and Programme Implementation** | The nodal central ministry responsible for computing official CPI, GDP, and national statistical metrics in India. |
+| **DIID** | **Data Informatics & Innovation Division** | The technological innovation wing under MoSPI defining the SIH problem statement. |
+| **DGCA** | **Directorate General of Civil Aviation** | India’s civil aviation regulatory authority. Source for official city-pair passenger traffic statistics and route basket weights. |
+| **SIH** | **Smart India Hackathon** | National innovation hackathon under the Ministry of Education & AICTE. |
+
+---
+
+### Econometric & Statistical Terminology
+| Acronym / Term | Full Form / Formula | Definition & Why It Matters |
+| :--- | :--- | :--- |
+| **CPI** | **Consumer Price Index** | Measures macroeconomic inflation across a representative basket of consumer goods and services (Base 2024 = 100). |
+| **APIx** | **Airfare Price Index (Prototype)** | The prototype price relative index measuring airfare price movements over time. |
+| **Jevons Index** | **Geometric Mean Price Relative** | $I_{J} = \frac{\left( \prod P_t \right)^{1/n}}{\left( \prod P_0 \right)^{1/n}} \times 100$. International standard elementary index formula that prevents upward price bias. |
+| **Laspeyres Index** | **Base-Weighted Price Index** | Aggregates micro-indices using fixed base-period passenger volume shares ($w_r$). |
+| **HHI** | **Herfindahl-Hirschman Index** | $HHI = \sum s_i^2$. Measures market monopoly/concentration among airlines on a corridor ($<1500$: competitive, $>2500$: highly concentrated). |
+| **MAE** | **Mean Absolute Error** | $\frac{1}{N}\sum \|y_i - \hat{y}_i\|$. Average magnitude of errors between predicted/modeled index and reference benchmarks. |
+| **RMSE** | **Root Mean Squared Error** | $\sqrt{\frac{1}{N}\sum (y_i - \hat{y}_i)^2}$. Penalizes larger forecast variances. |
+| **MAPE** | **Mean Absolute Percentage Error** | $\frac{100}{N}\sum \|\frac{y_i - \hat{y}_i}{y_i}\|$. Expresses error as a percentage ($<1.0\%$ demonstrates high tracking accuracy). |
+| **Pearson $r$** | **Pearson Correlation Coefficient** | Measures linear correlation between VAYU-CPI and reference data (ranges $-1.0$ to $+1.0$; VAYU achieves $r > 0.97$). |
+
+---
+
+### Aviation Industry & Fee Terminology
+| Term / Code | Full Form / Meaning | Role in Airfare Breakdown |
+| :--- | :--- | :--- |
+| **OTA** | **Online Travel Aggregator** | Third-party flight search portals (e.g. Google Flights, MakeMyTrip, EaseMyTrip, Yatra). |
+| **GDS** | **Global Distribution System** | Centralized B2B reservation networks (e.g. Amadeus, Sabre, Travelport) returning itemized airline tariffs. |
+| **IATA** | **International Air Transport Association** | Global aviation body that assigns 3-letter airport codes (`DEL`, `BOM`, `BLR`) and 2-character airline codes (`6E`, `AI`, `QP`, `SG`). |
+| **ICAO** | **International Civil Aviation Organization** | UN agency assigning 4-letter airport navigation codes (`VIDP` for Delhi, `VABB` for Mumbai). |
+| **UDF** | **User Development Fee** | Airport infrastructure development fee levied on outbound passengers (e.g. ₹650 for DEL/BOM). |
+| **PSF** | **Passenger Service Fee** | Statutory airport security and passenger facilitation charge. |
+| **YQ / YR** | **Fuel Surcharge / Carrier Fee** | Additional airline surcharge to offset aviation turbine fuel (ATF) price volatility. |
+| **GST** | **Goods and Services Tax** | Statutory government tax levied on passenger tickets (5% for Economy, 12% for Business class). |
+| **Tatkal / Spot** | **Immediate Departure Ticket** | Last-minute flight booking (1 day prior to departure), typically sold at peak surge pricing. |
+
+---
+
+### Advance Booking Window Codes ($T+X$)
+In aviation revenue management, $T$ stands for the **target flight departure date**, and $+X$ represents how many days in advance the ticket was sampled:
+
+- **$T+1$**: **Spot / Tatkal Booking** (1 day before departure — sensitive to demand spikes and seat scarcity).
+- **$T+7$**: **Standard 1-Week Advance** (short-term domestic consumer travel baseline).
+- **$T+15$**: **Fortnight Advance** (medium-range advance travel).
+- **$T+30$**: **1-Month Planning Horizon** (standard leisure & vacation planning).
+- **$T+45$**: **45-Day Long Advance Purchase** (early baseline capacity release tariff).
+
+---
+
+### Major Indian Airlines & IATA Codes
+- **6E**: **IndiGo** (InterGlobe Aviation Ltd. — Largest domestic carrier, $>60\%$ market share)
+- **AI**: **Air India** (Tata Group full-service carrier)
+- **IX / I5**: **Air India Express** (Tata Group low-cost domestic/regional carrier)
+- **QP**: **Akasa Air** (SNV Aviation low-cost carrier)
+- **SG**: **SpiceJet** (Domestic low-cost carrier)
+- **UK**: **Vistara** (Tata SIA Airlines — integrated under Air India)
+
+---
+
+### Primary Domestic Airport IATA Codes
+- **DEL**: Delhi — Indira Gandhi International Airport
+- **BOM**: Mumbai — Chhatrapati Shivaji Maharaj International Airport
+- **BLR**: Bengaluru — Kempegowda International Airport
+- **CCU**: Kolkata — Netaji Subhash Chandra Bose International Airport
+- **HYD**: Hyderabad — Rajiv Gandhi International Airport
+- **MAA**: Chennai — Chennai International Airport
+- **AMD**: Ahmedabad — Sardar Vallabhbhai Patel International Airport
+- **PNQ**: Pune — Pune International Airport
+- **GOI / GOX**: Goa — Dabolim / Manohar International Airport (Mopa)
+- **PAT**: Patna — Jay Prakash Narayan Airport
+- **COK**: Kochi — Cochin International Airport
+- **GAU**: Guwahati — Lokpriya Gopinath Bordoloi International Airport
+
+---
+
 ## 1. Executive Summary & Problem Breakdown
 
 ### The Core Challenge for MoSPI
