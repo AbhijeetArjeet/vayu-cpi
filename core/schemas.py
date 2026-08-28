@@ -1,25 +1,44 @@
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 
 class RawFareRecord(BaseModel):
-    """Shared schema: Emitted by Track 1, ingested and stored by Track 2."""
-
-    portal: str = Field(default="Google Flights Live Feed")
-    carrier_name: str = Field(default="IndiGo", example="IndiGo")
-    carrier_code: str = Field(..., example="6E")
-    flight_number: str = Field(..., example="6E-205")
-    origin: str = Field(..., min_length=3, max_length=3, example="DEL")
-    destination: str = Field(..., min_length=3, max_length=3, example="BOM")
-    departure_time: str = Field(..., example="2026-09-02 08:30")
-    scraped_at: str = Field(..., example="2026-08-26T22:30:00")
-    horizon_days: int = Field(..., example=7)  # 30 (Advance), 7 (Mid), 1 (Tatkal)
-    base_fare: float
-    fuel_surcharge_yq: float = 0.0
-    airport_fee_udf: float = 0.0
-    convenience_fee: float = 0.0
-    total_fare: float
+    """
+    Standard Raw Fare Record matching MoSPI / SIH requirements.
+    Preserves observed market prices with nullable fee components when not explicitly exposed.
+    """
+    portal: str = Field(default="Google Flights")
+    source: str = Field(default="Google Flights Live Feed")
+    source_url: Optional[str] = None
+    
+    carrier: str = Field(default="IndiGo")
+    carrier_name: Optional[str] = None
+    carrier_code: str = Field(default="6E")
+    flight_number: str = Field(..., description="e.g. 6E-205")
+    
+    origin: str = Field(..., min_length=3, max_length=3, description="IATA code e.g. DEL")
+    destination: str = Field(..., min_length=3, max_length=3, description="IATA code e.g. BOM")
+    departure_time: str = Field(..., description="e.g. 2026-09-02 08:30:00")
+    departure_date: Optional[str] = None
+    scraped_at: str = Field(..., description="ISO collection timestamp")
+    collection_timestamp: Optional[str] = None
+    
+    horizon_days: int = Field(..., description="1, 7, 15, 30, or 45")
+    booking_window: str = Field(default="T+7", description="T+1, T+7, T+15, T+30, T+45")
+    fare_class: str = Field(default="Economy", description="Economy, Premium Economy, Business")
+    
+    base_fare: Optional[float] = None
+    taxes: Optional[float] = None
+    fuel_surcharge_yq: Optional[float] = 0.0
+    udf: Optional[float] = None
+    airport_fee_udf: Optional[float] = 0.0
+    convenience_fee: Optional[float] = None
+    total_fare: float = Field(..., description="Observed all-inclusive passenger tariff")
+    currency: str = Field(default="INR")
+    
+    availability_status: str = Field(default="AVAILABLE", description="AVAILABLE, SOLD_OUT, CANCELLED")
+    is_modeled: bool = Field(default=False, description="True if fee breakdown is estimated/unbundled")
 
     # Provenance and Dataset Registry fields
     source_type: str = "LIVE_FLIGHT"  # LIVE_FLIGHT, HISTORICAL_DATASET, DGCA_REFERENCE, EXTERNAL_API
@@ -29,13 +48,29 @@ class RawFareRecord(BaseModel):
     is_historical: bool = False
     ingestion_timestamp: Optional[str] = None
 
+    def model_post_init(self, __context: Any) -> None:
+        if not self.carrier_name:
+            self.carrier_name = self.carrier
+        if not self.carrier:
+            self.carrier = self.carrier_name or "Unknown Airline"
+        if not self.collection_timestamp:
+            self.collection_timestamp = self.scraped_at
+        if not self.departure_date and self.departure_time:
+            self.departure_date = self.departure_time[:10]
+        if not self.booking_window:
+            self.booking_window = f"T+{self.horizon_days}"
+        if self.udf is not None and (self.airport_fee_udf == 0.0 or self.airport_fee_udf is None):
+            self.airport_fee_udf = self.udf
+        elif self.airport_fee_udf is not None and self.udf is None:
+            self.udf = self.airport_fee_udf
+
 
 class RouteJevonsIndex(BaseModel):
-    """Route-level geometric mean micro-index computed by Track 2."""
-
+    """Route-level geometric mean micro-index (Jevons elementary aggregate)."""
     origin: str
     destination: str
     horizon_days: int
+    booking_window: str = "T+7"
     current_geom_mean: float
     base_geom_mean: float
     jevons_index: float  # (current / base) * 100
@@ -43,22 +78,70 @@ class RouteJevonsIndex(BaseModel):
     data_mode: str = "live"  # live, historical, combined
 
 
-class NationalCompositeCPI(BaseModel):
-    """Payload served to Track 3 (MoSPI Macro View)."""
+class CarrierIndex(BaseModel):
+    """Carrier-level airfare price sub-index."""
+    carrier: str
+    carrier_code: str
+    sample_size: int
+    current_geom_mean: float
+    base_geom_mean: float
+    carrier_index: float
+    market_share_pct: float
 
+
+class NationalCompositeCPI(BaseModel):
+    """Payload served to MoSPI Macroeconomic View."""
     calculation_date: str
     composite_index: float  # Base 2024 = 100
-    advance_sub_index: float  # T-30
-    spot_sub_index: float  # T-1
+    daily_change_pct: Optional[float] = 0.0
+    weekly_change_pct: Optional[float] = 0.0
+    monthly_change_pct: Optional[float] = 0.0
+    
+    # Sub-indices by booking horizon
+    spot_sub_index: float = 100.0        # T+1
+    week_sub_index: float = 100.0        # T+7
+    fortnight_sub_index: float = 100.0   # T+15
+    advance_sub_index: float = 100.0     # T+30
+    long_advance_sub_index: float = 100.0 # T+45
+    
     tracked_corridors: int
+    total_observations: int = 0
     dgca_traffic_coverage_pct: float
     data_mode: str = "live"  # live, historical, combined
     source_label: str = "LIVE OBSERVATIONS"
 
 
-class SurgeAlert(BaseModel):
-    """Payload served to Track 3 (DGCA Governance Portal)."""
+class BacktestMetric(BaseModel):
+    """Econometric error and validation metrics for 30-day backtesting."""
+    period_start: str
+    period_end: str
+    observation_days: int
+    mae: float                # Mean Absolute Error
+    rmse: float               # Root Mean Squared Error
+    mape: float               # Mean Absolute Percentage Error (%)
+    pearson_correlation: float # Pearson r (-1 to +1)
+    reference_dataset: str
+    model_name: str = "VAYU-CPI Laspeyres-Jevons Hybrid"
+    is_simulation: bool = False
+    validation_status: str = "PASSED"
 
+
+class BacktestDailyComparison(BaseModel):
+    date: str
+    vayu_index: float
+    reference_index: float
+    absolute_error: float
+    percentage_error: float
+
+
+class BacktestResult(BaseModel):
+    metrics: BacktestMetric
+    series: List[BacktestDailyComparison]
+    methodology_notes: str
+
+
+class SurgeAlert(BaseModel):
+    """Payload served to DGCA Governance Portal."""
     corridor: str
     origin: str
     destination: str
@@ -125,4 +208,3 @@ class HistoricalComparison(BaseModel):
     historical_percentile: Optional[float] = None
     observation_count: int
     sample_sufficient: bool = True
-

@@ -14,6 +14,7 @@ except Exception as _import_err:
     FAST_FLIGHTS_IMPORT_ERROR = str(_import_err)
 
 from core.schemas import RawFareRecord
+from core.dgca_weights import get_horizon_code
 from services.ingestion.unbundler import unbundle_fare
 
 logging.basicConfig(level=logging.INFO)
@@ -23,11 +24,14 @@ TRACKED_CORRIDORS = [
     ("DEL", "BOM"),
     ("BOM", "DEL"),
     ("BLR", "DEL"),
+    ("DEL", "BLR"),
     ("DEL", "CCU"),
     ("DEL", "PAT"),
     ("BOM", "GOI"),
 ]
-TRACKED_HORIZONS = [30, 7, 1]
+
+# Standard SIH Horizons: T+1, T+7, T+15, T+30, T+45
+TRACKED_HORIZONS = [45, 30, 15, 7, 1]
 
 
 def is_google_consent_page(html: str) -> bool:
@@ -93,11 +97,13 @@ def fetch_route_horizon_with_diagnostics(
     """
     now = datetime.now()
     dep_date = (now + timedelta(days=horizon_days)).strftime("%Y-%m-%d")
+    bw_code = get_horizon_code(horizon_days)
     
     diag: Dict[str, Any] = {
         "origin": origin,
         "destination": destination,
         "horizon_days": horizon_days,
+        "booking_window": bw_code,
         "departure_date": dep_date,
         "request_timestamp": now.isoformat(),
         "fetch_stage": {"status": "pending", "elapsed_ms": 0, "flight_groups": 0, "used_fallback": False, "error": None},
@@ -108,7 +114,7 @@ def fetch_route_horizon_with_diagnostics(
     logger.info(
         f"\n[FETCH_START]\n"
         f"  Route          : {origin} -> {destination}\n"
-        f"  Horizon        : T-{horizon_days}\n"
+        f"  Horizon        : {bw_code} (+{horizon_days}d)\n"
         f"  Target Date    : {dep_date}\n"
         f"  Timestamp (Local): {now.isoformat()}"
     )
@@ -139,17 +145,17 @@ def fetch_route_horizon_with_diagnostics(
             err_str = str(primary_err)
             if "'NoneType' object has no attribute 'text'" in err_str or "script.ds:1" in err_str or isinstance(primary_err, AttributeError):
                 logger.warning(
-                    f"[FETCH_CONSENT_DETECTED] Standard fetch hit Google Consent page/missing payload script on cloud IP for {origin}->{destination} T-{horizon_days}. "
+                    f"[FETCH_CONSENT_DETECTED] Standard fetch hit Google Consent page on cloud IP for {origin}->{destination} {bw_code}. "
                     "Triggering isolated GoogleConsentFetchIntegration fallback..."
                 )
                 used_fallback = True
                 try:
                     result = get_flights(query_obj, integration=GoogleConsentFetchIntegration())
                 except IndexError as ie:
-                    logger.info(f"[NO_DATA_LAYOUT] Route {origin}->{destination} T-{horizon_days} layout has no unbundled price arrays ({ie}). Marking as NO_DATA.")
+                    logger.info(f"[NO_DATA_LAYOUT] Route {origin}->{destination} {bw_code} has no unbundled price arrays ({ie}). Marking as NO_DATA.")
                     result = []
             elif isinstance(primary_err, IndexError):
-                logger.info(f"[NO_DATA_LAYOUT] Route {origin}->{destination} T-{horizon_days} layout has no unbundled price arrays ({primary_err}). Marking as NO_DATA.")
+                logger.info(f"[NO_DATA_LAYOUT] Route {origin}->{destination} {bw_code} has no unbundled price arrays ({primary_err}). Marking as NO_DATA.")
                 result = []
             else:
                 raise primary_err
@@ -166,12 +172,7 @@ def fetch_route_horizon_with_diagnostics(
         })
         
         logger.info(
-            f"\n[FETCH_RESPONSE]\n"
-            f"  Route          : {origin} -> {destination} T-{horizon_days}\n"
-            f"  Status         : {status_classification}\n"
-            f"  Elapsed        : {elapsed_ms} ms\n"
-            f"  Used Fallback  : {used_fallback}\n"
-            f"  Flight Groups  : {flight_groups_cnt}"
+            f"[FETCH_RESPONSE] {origin}->{destination} {bw_code} Status: {status_classification}, Elapsed: {elapsed_ms}ms"
         )
     except Exception as exc:
         elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
@@ -179,14 +180,7 @@ def fetch_route_horizon_with_diagnostics(
         exc_msg = str(exc)
         tb_str = traceback.format_exc()
         
-        logger.error(
-            f"\n[FETCH_FAILED]\n"
-            f"  Route          : {origin} -> {destination} T-{horizon_days}\n"
-            f"  Elapsed        : {elapsed_ms} ms\n"
-            f"  Exception Type : {exc_type}\n"
-            f"  Message        : {exc_msg}\n"
-            f"  Traceback      :\n{tb_str}"
-        )
+        logger.error(f"[FETCH_FAILED] {origin}->{destination} {bw_code}: {exc_type} - {exc_msg}")
         diag["fetch_stage"].update({
             "status": "FAILED",
             "elapsed_ms": elapsed_ms,
@@ -196,7 +190,6 @@ def fetch_route_horizon_with_diagnostics(
         return diag
 
     if not result:
-        logger.info(f"[NO_DATA_RESULT] Zero flight groups returned for {origin}->{destination} T-{horizon_days}")
         diag["parse_stage"].update({"status": "NO_DATA", "records_generated": 0})
         return diag
 
@@ -214,6 +207,13 @@ def fetch_route_horizon_with_diagnostics(
             airlines = getattr(flight_group, "airlines", [])
             carrier_name = str(airlines[0]) if (airlines and len(airlines) > 0) else "Unknown Airline"
             carrier_code = str(getattr(flight_group, "type", "XX")).upper()
+            if carrier_code == "XX" or not carrier_code:
+                # Map common airline names to codes
+                carrier_code_map = {"INDIGO": "6E", "AIR INDIA": "AI", "AKASA": "QP", "SPICEJET": "SG", "VISTARA": "UK"}
+                for k, v in carrier_code_map.items():
+                    if k in carrier_name.upper():
+                        carrier_code = v
+                        break
 
             sub_flights = getattr(flight_group, "flights", [])
             departure_time_str = f"{dep_date} 10:00:00"
@@ -232,28 +232,42 @@ def fetch_route_horizon_with_diagnostics(
             scraped_at_str = now.isoformat()
 
             record = RawFareRecord(
-                portal="Google Flights Live Feed",
+                portal="Google Flights",
+                source="Google Flights Live Feed",
+                source_url=f"https://www.google.com/travel/flights?q=Flights%20to%20{destination}%20from%20{origin}",
+                carrier=carrier_name,
                 carrier_name=carrier_name,
                 carrier_code=carrier_code or "XX",
                 flight_number=flight_number,
                 origin=origin,
                 destination=destination,
+                departure_date=dep_date,
                 departure_time=departure_time_str,
                 scraped_at=scraped_at_str,
+                collection_timestamp=scraped_at_str,
                 horizon_days=horizon_days,
+                booking_window=bw_code,
+                fare_class="Economy",
                 base_fare=unbundled["base_fare"],
+                taxes=round(total_fare - unbundled["base_fare"], 2),
                 fuel_surcharge_yq=unbundled["fuel_surcharge_yq"],
                 airport_fee_udf=unbundled["airport_fee_udf"],
+                udf=unbundled["airport_fee_udf"],
                 convenience_fee=unbundled["convenience_fee"],
                 total_fare=unbundled["total_fare"],
+                currency="INR",
+                availability_status="AVAILABLE",
+                is_modeled=True,  # Explicitly state that fee breakdown is estimated/unbundled
+                source_type="LIVE_FLIGHT",
+                source_name="Google Flights Production Pipeline",
+                dataset_version="1.0.0",
+                is_live=True,
+                is_historical=False,
             )
             records.append(record)
         except Exception as err:
             skipped_cnt += 1
-            logger.warning(
-                f"[PARSE_ERROR] Failed parsing flight offer idx {idx} on {origin}->{destination}: {err}\n"
-                f"{traceback.format_exc()}"
-            )
+            logger.warning(f"[PARSE_ERROR] Offer {idx} on {origin}->{destination}: {err}")
 
     diag["parse_stage"].update({
         "status": "SUCCESS" if records else "NO_DATA",
@@ -261,14 +275,6 @@ def fetch_route_horizon_with_diagnostics(
         "skipped_offers": skipped_cnt,
     })
     diag["records"] = records
-
-    logger.info(
-        f"\n[PARSE_RESULT]\n"
-        f"  Route          : {origin} -> {destination} T-{horizon_days}\n"
-        f"  Flight Groups  : {len(result)}\n"
-        f"  Records Parsed : {len(records)}\n"
-        f"  Offers Skipped : {skipped_cnt}"
-    )
 
     return diag
 
@@ -281,10 +287,7 @@ def fetch_route_horizon(origin: str, destination: str, horizon_days: int) -> Lis
 
 def fetch_all_corridors_with_summary() -> Tuple[List[RawFareRecord], Dict[str, Any]]:
     """
-    Executes full sweep across all tracked corridors and horizons with explicit classification:
-    - SUCCESS: Flight records fetched.
-    - NO_DATA: Query succeeded cleanly but zero flights matched.
-    - FAILED: Network / server error.
+    Executes full sweep across all tracked corridors and horizons (T+1..T+45).
     """
     all_records: List[RawFareRecord] = []
     job_results: List[Dict[str, Any]] = []
@@ -324,6 +327,7 @@ def fetch_all_corridors_with_summary() -> Tuple[List[RawFareRecord], Dict[str, A
                 job_results.append({
                     "corridor": f"{origin}-{destination}",
                     "horizon": horizon,
+                    "booking_window": get_horizon_code(horizon),
                     "target_date": diag.get("departure_date"),
                     "status": fetch_st,
                     "flight_groups": diag.get("fetch_stage", {}).get("flight_groups", 0),
@@ -334,18 +338,16 @@ def fetch_all_corridors_with_summary() -> Tuple[List[RawFareRecord], Dict[str, A
                 })
             except Exception as route_exc:
                 failed_cnt += 1
-                logger.error(
-                    f"[CORRIDOR_SWEEP_ERROR] Route {origin}->{destination} T-{horizon} failed: {route_exc}\n"
-                    f"{traceback.format_exc()}"
-                )
+                logger.error(f"[CORRIDOR_SWEEP_ERROR] Route {origin}->{destination} T+{horizon} failed: {route_exc}")
                 job_results.append({
                     "corridor": f"{origin}-{destination}",
                     "horizon": horizon,
+                    "booking_window": get_horizon_code(horizon),
                     "status": "FAILED",
                     "error": {"type": type(route_exc).__name__, "message": str(route_exc)},
                 })
 
-    coverage_pct = round(((success_cnt + nodata_cnt) / total_jobs) * 100, 1)
+    coverage_pct = round(((success_cnt + nodata_cnt) / max(1, total_jobs)) * 100, 1)
 
     summary = {
         "timestamp": now.isoformat(),
@@ -358,29 +360,9 @@ def fetch_all_corridors_with_summary() -> Tuple[List[RawFareRecord], Dict[str, A
         "job_details": job_results,
     }
 
-    logger.info(
-        f"\n=======================================================\n"
-        f"  VAYU SWEEP CLASSIFICATION SUMMARY\n"
-        f"=======================================================\n"
-        f"  SUCCESS : {success_cnt}\n"
-        f"  NO_DATA : {nodata_cnt}\n"
-        f"  FAILED  : {failed_cnt}\n"
-        f"  TOTAL   : {total_jobs}\n"
-        f"  COVERAGE: {coverage_pct}%\n"
-        f"  RECORDS : {len(all_records)} total live fares generated\n"
-        f"======================================================="
-    )
-
     return all_records, summary
 
 
 def fetch_all_corridors() -> List[RawFareRecord]:
     all_records, _ = fetch_all_corridors_with_summary()
     return all_records
-
-
-if __name__ == "__main__":
-    import json
-    records, summary = fetch_all_corridors_with_summary()
-    print(f"\n--- SWEEP SUMMARY ---")
-    print(json.dumps(summary, indent=2, default=str))

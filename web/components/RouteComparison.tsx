@@ -100,7 +100,7 @@ export default function RouteComparison({ routes }: RouteComparisonProps) {
               <td className="px-4 py-3 text-slate-400 font-medium">Planning Horizon</td>
               {activeRouteObjects.map((r, idx) => (
                 <td key={idx} className="px-4 py-3 text-purple-400">
-                  T-{r.horizon_days} Days
+                  T+{r.horizon_days} Days
                 </td>
               ))}
             </tr>

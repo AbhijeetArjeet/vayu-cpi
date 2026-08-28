@@ -72,7 +72,7 @@ export default function RouteCards({ routes, alerts }: RouteCardsProps) {
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 text-[10px] font-mono bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-full">
-                      T-{r.horizon_days}
+                      T+{r.horizon_days}
                     </span>
                   )}
                 </div>

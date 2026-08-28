@@ -210,9 +210,11 @@ function RoutesExplorerContent() {
               onChange={(e) => setHorizon(Number(e.target.value))}
               className="w-full px-3 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
             >
-              <option value={1}>Tatkal / Spot (T-1 Day)</option>
-              <option value={7}>Mid-Horizon (T-7 Days)</option>
-              <option value={30}>Advance Booking (T-30 Days)</option>
+              <option value={1}>Spot / Immediate (T+1 Day)</option>
+              <option value={7}>1-Week Advance (T+7 Days)</option>
+              <option value={15}>Fortnight Advance (T+15 Days)</option>
+              <option value={30}>1-Month Advance (T+30 Days)</option>
+              <option value={45}>45-Day Advance (T+45 Days)</option>
             </select>
           </div>
 
@@ -242,7 +244,7 @@ function RoutesExplorerContent() {
               <span className="text-lg font-bold text-slate-900 dark:text-white">{toCode}</span>
             </div>
             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              T-{horizon} HORIZON
+              T+{horizon} HORIZON
             </span>
           </div>
 

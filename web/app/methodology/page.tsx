@@ -62,11 +62,13 @@ export default function MethodologyPage() {
           </div>
 
           <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
-            <span className="font-bold text-purple-400">Horizon Advance Weights (α_h):</span>
+            <span className="font-bold text-purple-400">Advance Booking Horizon Weights (α_h):</span>
             <ul className="space-y-1 text-slate-600 dark:text-slate-300 text-[11px]">
-              <li>• T-30 (Advance Planning): 35% Weight</li>
-              <li>• T-7 (Mid-Horizon): 45% Weight</li>
-              <li>• T-1 (Tatkal / Immediate): 20% Weight</li>
+              <li>• T+45 (Long Advance): 15% Weight</li>
+              <li>• T+30 (1-Month Advance): 20% Weight</li>
+              <li>• T+15 (Fortnight Advance): 25% Weight</li>
+              <li>• T+7 (1-Week Advance): 25% Weight</li>
+              <li>• T+1 (Spot / Immediate): 15% Weight</li>
             </ul>
           </div>
         </div>

@@ -146,19 +146,19 @@ export default function MospiPortal() {
         </div>
 
         <div className="glass-panel p-5 space-y-2">
-          <span className="text-xs font-mono text-slate-400 uppercase">Advance Sub-Index (T-30)</span>
+          <span className="text-xs font-mono text-slate-400 uppercase">Advance Sub-Index (T+30)</span>
           <div className="text-3xl font-black font-mono text-purple-400">
             <AnimatedNumber value={latestData?.advance_sub_index ?? 145.2} decimals={2} />
           </div>
-          <span className="text-[10px] font-mono text-slate-500">Horizon Weight: 35%</span>
+          <span className="text-[10px] font-mono text-slate-500">Horizon Weight: 20%</span>
         </div>
 
         <div className="glass-panel p-5 space-y-2">
-          <span className="text-xs font-mono text-slate-400 uppercase">Spot Sub-Index (T-1)</span>
+          <span className="text-xs font-mono text-slate-400 uppercase">Spot Sub-Index (T+1)</span>
           <div className="text-3xl font-black font-mono text-cyan-400">
             <AnimatedNumber value={latestData?.spot_sub_index ?? 182.4} decimals={2} />
           </div>
-          <span className="text-[10px] font-mono text-slate-500">Horizon Weight: 20%</span>
+          <span className="text-[10px] font-mono text-slate-500">Horizon Weight: 15%</span>
         </div>
 
         <div className="glass-panel p-5 space-y-2">
@@ -270,7 +270,7 @@ export default function MospiPortal() {
               onChange={(e) => setDemandSurge(Number(e.target.value))}
               className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
             />
-            <span className="text-[10px] text-slate-500">Peak demand impact on spot T-1 tickets</span>
+            <span className="text-[10px] text-slate-500">Peak demand impact on spot T+1 tickets</span>
           </div>
 
           <div className="bg-slate-950 p-4 rounded-xl border border-indigo-500/30 text-center">
@@ -311,7 +311,7 @@ export default function MospiPortal() {
                 <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                   <td className="px-5 py-3.5 font-bold">{route.origin}</td>
                   <td className="px-5 py-3.5 font-bold">{route.destination}</td>
-                  <td className="px-5 py-3.5 text-slate-400">T-{route.horizon_days}</td>
+                  <td className="px-5 py-3.5 text-slate-400">T+{route.horizon_days}</td>
                   <td className="px-5 py-3.5 font-bold text-blue-500">{route.jevons_index.toFixed(2)}</td>
                   <td className="px-5 py-3.5">₹{route.current_geom_mean.toLocaleString()}</td>
                   <td className="px-5 py-3.5 text-slate-400">₹{route.base_geom_mean.toLocaleString()}</td>

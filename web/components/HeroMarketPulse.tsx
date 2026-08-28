@@ -108,25 +108,25 @@ export default function HeroMarketPulse({
             </p>
           </div>
 
-          {/* Sub-Indexes (Advance T-30 vs Tatkal T-1) */}
+          {/* Sub-Indexes (Advance T+30 vs Spot T+1) */}
           <div className="grid grid-cols-2 gap-4 border-l border-r border-slate-800/80 px-0 md:px-6 py-2">
             <div className="space-y-1">
               <span className="text-[11px] font-mono text-slate-400 uppercase">
-                Advance Sub-Index (T-30)
+                Advance Sub-Index (T+30)
               </span>
               <div className="text-xl font-bold font-mono text-purple-400">
                 <AnimatedNumber value={advanceVal} decimals={2} />
               </div>
-              <span className="text-[10px] text-slate-500">Planning Horizon (35% Weight)</span>
+              <span className="text-[10px] text-slate-500">Planning Horizon (20% Weight)</span>
             </div>
             <div className="space-y-1">
               <span className="text-[11px] font-mono text-slate-400 uppercase">
-                Spot Sub-Index (T-1)
+                Spot Sub-Index (T+1)
               </span>
               <div className="text-xl font-bold font-mono text-cyan-400">
                 <AnimatedNumber value={spotVal} decimals={2} />
               </div>
-              <span className="text-[10px] text-slate-500">Immediate Spot Fare (20% Weight)</span>
+              <span className="text-[10px] text-slate-500">Immediate Spot Fare (15% Weight)</span>
             </div>
           </div>
 

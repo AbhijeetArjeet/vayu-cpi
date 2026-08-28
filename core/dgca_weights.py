@@ -1,39 +1,93 @@
-ROUTE_WEIGHTS = {
-    "DEL-BOM": 0.26,
-    "BOM-DEL": 0.24,
-    "BLR-DEL": 0.20,
-    "DEL-CCU": 0.14,
-    "DEL-PAT": 0.09,
-    "BOM-GOI": 0.07,
+"""
+core/dgca_weights.py
+Configurable DGCA passenger-traffic weights and advance booking window horizons for VAYU-CPI.
+Reference source: Directorate General of Civil Aviation (DGCA) Domestic City-Pair Traffic Statistics.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+from typing import Dict, Tuple, List
+
+# Default route weights (Laspeyres / Young basket) based on DGCA city-pair traffic shares
+DEFAULT_ROUTE_WEIGHTS: Dict[str, float] = {
+    "DEL-BOM": 0.22,
+    "BOM-DEL": 0.20,
+    "BLR-DEL": 0.14,
     "DEL-BLR": 0.12,
-    "CCU-DEL": 0.07,
-    "DEL-HYD": 0.06,
-    "HYD-DEL": 0.05,
-    "DEL-MAA": 0.05,
-    "MAA-DEL": 0.04,
-    "BOM-BLR": 0.03,
-    "BLR-BOM": 0.03
+    "DEL-CCU": 0.08,
+    "CCU-DEL": 0.06,
+    "BOM-BLR": 0.04,
+    "BLR-BOM": 0.03,
+    "DEL-HYD": 0.03,
+    "HYD-DEL": 0.02,
+    "DEL-MAA": 0.02,
+    "MAA-DEL": 0.02,
+    "DEL-PAT": 0.01,
+    "BOM-GOI": 0.01,
 }
 
-HORIZON_ALPHA = {
-    30: 0.35,
-    7: 0.45,
-    1: 0.20
+# Standardized SIH Advance Booking Horizons: T+1, T+7, T+15, T+30, T+45
+DEFAULT_HORIZON_ALPHA: Dict[int, float] = {
+    1: 0.15,   # T+1  (Spot / 1 day advance)
+    7: 0.25,   # T+7  (1 week advance)
+    15: 0.25,  # T+15 (Fortnight advance)
+    30: 0.20,  # T+30 (1 month advance)
+    45: 0.15,  # T+45 (45 days advance)
 }
 
-ALL_CORRIDORS = [
+HORIZON_CODE_MAP: Dict[int, str] = {
+    1: "T+1",
+    7: "T+7",
+    15: "T+15",
+    30: "T+30",
+    45: "T+45",
+}
+
+CODE_TO_HORIZON: Dict[str, int] = {
+    "T+1": 1,
+    "T+7": 7,
+    "T+15": 15,
+    "T+30": 30,
+    "T+45": 45,
+}
+
+def load_route_basket_config() -> Tuple[Dict[str, float], Dict[int, float]]:
+    """Loads route weights and horizon weights from config/route_basket.json if available."""
+    config_paths = [
+        Path(__file__).resolve().parent.parent / "config" / "route_basket.json",
+        Path("config/route_basket.json"),
+    ]
+    for p in config_paths:
+        if p.exists():
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                rw = data.get("route_weights", DEFAULT_ROUTE_WEIGHTS)
+                hw_raw = data.get("horizon_weights", {})
+                hw = {int(k): float(v) for k, v in hw_raw.items()} if hw_raw else DEFAULT_HORIZON_ALPHA
+                return rw, hw
+            except Exception:
+                pass
+    return DEFAULT_ROUTE_WEIGHTS, DEFAULT_HORIZON_ALPHA
+
+ROUTE_WEIGHTS, HORIZON_ALPHA = load_route_basket_config()
+
+ALL_CORRIDORS: List[Tuple[str, str]] = [
     ("DEL", "BOM"),
     ("BOM", "DEL"),
     ("BLR", "DEL"),
     ("DEL", "BLR"),
     ("DEL", "CCU"),
     ("CCU", "DEL"),
+    ("BOM", "BLR"),
+    ("BLR", "BOM"),
     ("DEL", "HYD"),
     ("HYD", "DEL"),
     ("DEL", "MAA"),
     ("MAA", "DEL"),
-    ("BOM", "BLR"),
-    ("BLR", "BOM"),
     ("BOM", "HYD"),
     ("HYD", "BOM"),
     ("BOM", "MAA"),
@@ -43,7 +97,7 @@ ALL_CORRIDORS = [
     ("BLR", "MAA"),
     ("MAA", "BLR"),
     ("DEL", "PAT"),
-    ("BOM", "GOI")
+    ("BOM", "GOI"),
 ]
 
 INDIAN_AIRPORTS = {
@@ -76,12 +130,17 @@ INDIAN_AIRPORTS = {
     "IXZ": {"code": "IXZ", "name": "Veer Savarkar International", "city": "Port Blair", "lat": 11.6410, "lon": 92.7297, "x": 92, "y": 82},
     "IXJ": {"code": "IXJ", "name": "Jammu Airport", "city": "Jammu", "lat": 32.6891, "lon": 74.8375, "x": 32, "y": 16},
     "IXR": {"code": "IXR", "name": "Birsa Munda Airport", "city": "Ranchi", "lat": 23.3143, "lon": 85.3217, "x": 63, "y": 46},
-    "IMF": {"code": "IMF", "name": "Imphal International", "city": "Imphal", "lat": 24.7600, "lon": 93.8967, "x": 93, "y": 40}
+    "IMF": {"code": "IMF", "name": "Imphal International", "city": "Imphal", "lat": 24.7600, "lon": 93.8967, "x": 93, "y": 40},
 }
 
 def get_route_weight(origin: str, dest: str) -> float:
     return ROUTE_WEIGHTS.get(f"{origin}-{dest}", 0.02)
 
 def get_horizon_alpha(horizon_days: int) -> float:
-    return HORIZON_ALPHA.get(horizon_days, 0.33)
+    return HORIZON_ALPHA.get(horizon_days, 0.20)
 
+def get_horizon_code(horizon_days: int) -> str:
+    return HORIZON_CODE_MAP.get(horizon_days, f"T+{horizon_days}")
+
+def parse_horizon_code(code: str) -> int:
+    return CODE_TO_HORIZON.get(code.upper(), 7)

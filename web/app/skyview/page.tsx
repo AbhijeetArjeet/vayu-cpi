@@ -910,7 +910,7 @@ function SkyviewContent() {
                 <ArrowRight className="h-3.5 w-3.5 text-blue-400" />
                 <span>{currentRoute?.destination || "BOM"}</span>
               </div>
-              <span className="text-[9px] sm:text-[10px] text-blue-400 font-bold">T-{currentRoute?.horizon_days || 7} Horizon</span>
+              <span className="text-[9px] sm:text-[10px] text-blue-400 font-bold">T+{currentRoute?.horizon_days || 7} Horizon</span>
             </div>
 
             {/* Current Observed Fare */}
@@ -1099,26 +1099,26 @@ function SkyviewContent() {
 
                   <div className="grid grid-cols-3 gap-2.5 text-xs">
                     <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-center">
-                      <span className="text-[10px] text-slate-500 block">T-30 ADVANCE</span>
+                      <span className="text-[10px] text-slate-500 block">T+30 ADVANCE</span>
                       <strong className="text-emerald-400 text-sm mt-1 block">₹{Math.round(currentFare * 0.85).toLocaleString()}</strong>
                       <span className="text-[9px] text-slate-400">Lowest</span>
                     </div>
 
                     <div className="p-3 bg-slate-900 rounded-xl border border-blue-500/30 text-center">
-                      <span className="text-[10px] text-blue-400 block font-bold">T-7 MID</span>
+                      <span className="text-[10px] text-blue-400 block font-bold">T+7 MID</span>
                       <strong className="text-white text-sm mt-1 block">₹{currentFare.toLocaleString()}</strong>
                       <span className="text-[9px] text-slate-400">Active</span>
                     </div>
 
                     <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-center">
-                      <span className="text-[10px] text-slate-500 block">T-1 TATKAL</span>
+                      <span className="text-[10px] text-slate-500 block">T+1 SPOT</span>
                       <strong className="text-rose-400 text-sm mt-1 block">₹{Math.round(currentFare * 1.3).toLocaleString()}</strong>
                       <span className="text-[9px] text-rose-400 font-bold">+30% Surge</span>
                     </div>
                   </div>
 
                   <p className="text-[11px] text-slate-400 leading-relaxed pt-1">
-                    Airfare pressure escalates significantly as departure date approaches (T-1 Tatkal premium).
+                    Airfare pressure escalates significantly as departure date approaches (T+1 Spot premium).
                   </p>
                 </div>
               </div>

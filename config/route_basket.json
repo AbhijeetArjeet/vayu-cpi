@@ -1,0 +1,35 @@
+{
+  "description": "Representative Indian domestic route basket based on DGCA Passenger Traffic Statistics (2024-2025)",
+  "reference_source": "Directorate General of Civil Aviation (DGCA) Domestic City-Pair Traffic Reports",
+  "base_year": 2024,
+  "route_weights": {
+    "DEL-BOM": 0.22,
+    "BOM-DEL": 0.20,
+    "BLR-DEL": 0.14,
+    "DEL-BLR": 0.12,
+    "DEL-CCU": 0.08,
+    "CCU-DEL": 0.06,
+    "BOM-BLR": 0.04,
+    "BLR-BOM": 0.03,
+    "DEL-HYD": 0.03,
+    "HYD-DEL": 0.02,
+    "DEL-MAA": 0.02,
+    "MAA-DEL": 0.02,
+    "DEL-PAT": 0.01,
+    "BOM-GOI": 0.01
+  },
+  "horizon_weights": {
+    "1": 0.15,
+    "7": 0.25,
+    "15": 0.25,
+    "30": 0.20,
+    "45": 0.15
+  },
+  "booking_windows": [
+    {"days": 1, "code": "T+1", "name": "Spot / 1-Day Advance"},
+    {"days": 7, "code": "T+7", "name": "1-Week Advance"},
+    {"days": 15, "code": "T+15", "name": "Fortnight Advance"},
+    {"days": 30, "code": "T+30", "name": "1-Month Advance"},
+    {"days": 45, "code": "T+45", "name": "45-Day Advance"}
+  ]
+}

@@ -203,8 +203,8 @@ export default function SystemControlCenterPage() {
               <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-purple-500" /> Horizons Monitored
               </div>
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">T-30, T-7, T-1</div>
-              <div className="text-[10px] text-slate-400 mt-1">Advance, Mid & Tatkal</div>
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">T+1 to T+45</div>
+              <div className="text-[10px] text-slate-400 mt-1">T+1, T+7, T+15, T+30, T+45</div>
             </div>
 
             <div className="glass-panel p-4 bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800">
@@ -254,7 +254,7 @@ export default function SystemControlCenterPage() {
               <div className="p-4 bg-slate-50 dark:bg-slate-950/80 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">Scheduler Cadence</span>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  The automated background worker queries configured corridors every {frequency} minutes across 3 horizons (T-30, T-7, T-1).
+                  The automated background worker queries configured corridors every {frequency} minutes across 5 horizons (T+1, T+7, T+15, T+30, T+45).
                 </p>
                 <div className="pt-2 flex items-center gap-3">
                   <select
@@ -284,7 +284,7 @@ export default function SystemControlCenterPage() {
                   >
                     {sweeping ? (
                       <>
-                        <RefreshCw className="h-4 w-4 animate-spin" /> Sweeping 12 Corridors Across T-30, T-7, T-1...
+                        <RefreshCw className="h-4 w-4 animate-spin" /> Sweeping Corridors Across T+1..T+45...
                       </>
                     ) : (
                       <>

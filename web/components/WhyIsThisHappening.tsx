@@ -16,7 +16,7 @@ export default function WhyIsThisHappening({
 }: WhyIsThisHappeningProps) {
   const drivers = [
     { name: "Price Deviation vs 30D Baseline", pct: Math.min(Math.round(sigmaDeviation * 18), 95), color: "bg-rose-500" },
-    { name: "Spot Booking Demand Pressure (T-1)", pct: 68, color: "bg-amber-500" },
+    { name: "Spot Booking Demand Pressure (T+1)", pct: 68, color: "bg-amber-500" },
     { name: "Airfare Volatility Index", pct: 45, color: "bg-blue-500" },
     { name: "Airline Concentration (HHI)", pct: Math.min(Math.round((hhiScore / 2500) * 100), 100), color: "bg-indigo-500" },
   ];

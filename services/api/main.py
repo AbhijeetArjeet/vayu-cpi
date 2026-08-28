@@ -1,17 +1,34 @@
 """
 services/api/main.py
-FastAPI application entrypoint. Wires up CORS for the Next.js frontend
-and mounts the MoSPI, DGCA, and Production Debug route modules.
-
-Run:
-    uvicorn services.api.main:app --reload --port 8000
+FastAPI application entrypoint for VAYU-CPI.
+Exposes standard SIH endpoints, MoSPI macroeconomic CPI routes, DGCA governance tools,
+and OpenAPI / Swagger interactive documentation.
 """
+
+from __future__ import annotations
 
 import os
 import logging
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Optional
+from datetime import date
+
+from fastapi import FastAPI, HTTPException, Query, Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response, JSONResponse
+
 from core.env_diag import print_startup_diagnostics
+from core.schemas import (
+    NationalCompositeCPI,
+    CarrierIndex,
+    BacktestResult,
+)
+from core.dgca_weights import ALL_CORRIDORS, INDIAN_AIRPORTS, get_horizon_code
+from services.engine.index_calculator import (
+    compute_national_composite_cpi,
+    compute_carrier_indices,
+)
+from services.engine.backtester import run_30day_backtest
+from services.persistence.db import fetch_all_observations
 
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("vayu-cpi.api")
@@ -19,16 +36,15 @@ _logger = logging.getLogger("vayu-cpi.api")
 app = FastAPI(
     title="VAYU-CPI API",
     description=(
-        "Real-time airfare price index for India (SIH26056) -- "
-        "MoSPI macroeconomic index endpoints, DGCA surge/anomaly "
-        "monitoring endpoints, and production diagnostic engine."
+        "National Airfare Price Index for India — "
+        "Augmenting Consumer Price Index (CPI) through Automated, Ethical Web Scraping. "
+        "Ministry: MoSPI | Department: DIID | SIH Problem Statement."
     ),
-    version="0.1.0",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response, JSONResponse
-from fastapi import Request
 
 class DynamicCORSMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -52,6 +68,7 @@ class DynamicCORSMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(DynamicCORSMiddleware)
 
+
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     origin = request.headers.get("origin")
@@ -67,23 +84,148 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
         headers=headers,
     )
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    origin = request.headers.get("origin")
-    _logger.error(f"[GLOBAL_EXCEPTION] Unhandled error: {exc}", exc_info=True)
-    headers = {}
-    if origin:
-        headers["Access-Control-Allow-Origin"] = origin
-        headers["Access-Control-Allow-Credentials"] = "true"
-        headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Admin-Token, Cookie"
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error occurred."},
-        headers=headers,
-    )
 
-# --- Routes ---
+# --- Root / Standard SIH Endpoints ---
+
+@app.get("/health", tags=["System Health"])
+def health_check() -> dict:
+    """System health check endpoint."""
+    return {"status": "ok", "service": "vayu-cpi-api", "version": "1.0.0", "sih_theme": "Smart Automation (MoSPI)"}
+
+
+@app.get("/routes", tags=["Core Aviation Data"])
+def list_routes() -> dict:
+    """Returns all tracked domestic corridors, city names, and airport metadata."""
+    routes_data = []
+    for orig, dest in ALL_CORRIDORS:
+        orig_info = INDIAN_AIRPORTS.get(orig, {"name": orig, "city": orig})
+        dest_info = INDIAN_AIRPORTS.get(dest, {"name": dest, "city": dest})
+        routes_data.append({
+            "corridor": f"{orig}-{dest}",
+            "origin": orig,
+            "origin_city": orig_info["city"],
+            "origin_name": orig_info["name"],
+            "destination": dest,
+            "destination_city": dest_info["city"],
+            "destination_name": dest_info["name"],
+        })
+    return {"count": len(routes_data), "routes": routes_data}
+
+
+@app.get("/carriers", response_model=List[CarrierIndex], tags=["Core Aviation Data"])
+def list_carriers(mode: str = Query("combined", description="live, historical, combined")) -> List[CarrierIndex]:
+    """Returns carrier-level sub-indices and observed market share distributions."""
+    return compute_carrier_indices(mode=mode)
+
+
+@app.get("/fares", tags=["Core Aviation Data"])
+def list_fares(
+    origin: Optional[str] = Query(None, min_length=3, max_length=3, description="e.g. DEL"),
+    destination: Optional[str] = Query(None, min_length=3, max_length=3, description="e.g. BOM"),
+    carrier: Optional[str] = Query(None, description="e.g. 6E or IndiGo"),
+    booking_window: Optional[str] = Query(None, description="e.g. T+1, T+7, T+15, T+30, T+45"),
+    mode: str = Query("combined", description="live, historical, combined"),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    """Returns raw and cleaned fare observations with query filtering."""
+    records = fetch_all_observations(
+        mode=mode,
+        origin=origin,
+        destination=destination,
+        carrier=carrier,
+        booking_window=booking_window,
+        limit=limit,
+    )
+    return {
+        "count": len(records),
+        "filters": {
+            "origin": origin,
+            "destination": destination,
+            "carrier": carrier,
+            "booking_window": booking_window,
+            "mode": mode,
+        },
+        "fares": [
+            {
+                "id": r.id,
+                "origin": r.origin,
+                "destination": r.destination,
+                "carrier": r.carrier,
+                "carrier_code": r.carrier_code,
+                "flight_number": r.flight_number,
+                "departure_date": r.departure_date or str(r.departure_time)[:10],
+                "departure_time": r.departure_time,
+                "collection_timestamp": r.scraped_at,
+                "horizon_days": r.horizon_days,
+                "booking_window": r.booking_window or get_horizon_code(r.horizon_days),
+                "fare_class": r.fare_class,
+                "base_fare": r.base_fare,
+                "taxes": r.taxes,
+                "udf": r.udf or r.airport_fee_udf,
+                "convenience_fee": r.convenience_fee,
+                "total_fare": r.total_fare,
+                "currency": r.currency,
+                "availability_status": r.availability_status,
+                "source": r.source,
+                "source_url": r.source_url,
+                "is_modeled": r.is_modeled,
+                "is_live": r.is_live,
+                "is_historical": r.is_historical,
+            }
+            for r in records
+        ],
+    }
+
+
+@app.get("/index", response_model=NationalCompositeCPI, tags=["Econometric Index"])
+def get_index(
+    target_date: Optional[date] = Query(None, description="Target calculation date"),
+    mode: str = Query("live", description="live, historical, combined"),
+):
+    """Returns the National Airfare Price Index (Base 2024 = 100) and all 5 booking window sub-indices."""
+    return compute_national_composite_cpi(target_date, mode=mode)
+
+
+@app.get("/index/daily", tags=["Econometric Index"])
+def get_daily_index(
+    days_back: int = Query(30, ge=1, le=365),
+    mode: str = Query("live", description="live, historical, combined"),
+):
+    """Returns daily airfare price index series."""
+    from services.api.routes_cpi import get_daily_index as cpi_daily
+    return cpi_daily(days_back=days_back, mode=mode)
+
+
+@app.get("/index/weekly", tags=["Econometric Index"])
+def get_weekly_index(
+    weeks_back: int = Query(12, ge=1, le=52),
+    mode: str = Query("live", description="live, historical, combined"),
+):
+    """Returns weekly smoothed airfare price index series."""
+    from services.api.routes_cpi import get_weekly_index as cpi_weekly
+    return cpi_weekly(weeks_back=weeks_back, mode=mode)
+
+
+@app.get("/index/monthly", tags=["Econometric Index"])
+def get_monthly_index(
+    months_back: int = Query(12, ge=1, le=36),
+    mode: str = Query("live", description="live, historical, combined"),
+):
+    """Returns monthly aggregated airfare price index series for official CPI integration."""
+    from services.api.routes_cpi import get_monthly_index as cpi_monthly
+    return cpi_monthly(months_back=months_back, mode=mode)
+
+
+@app.get("/backtest", response_model=BacktestResult, tags=["Econometric Validation"])
+def get_backtest_results(mode: str = Query("historical", description="historical, combined")) -> BacktestResult:
+    """
+    Executes 30-day econometric backtesting comparing VAYU-CPI against DGCA reference benchmarks.
+    Returns MAE, RMSE, MAPE, Pearson correlation, and daily comparative series.
+    """
+    return run_30day_backtest(mode=mode)
+
+
+# --- Include Feature Routers ---
 from services.api.routes_cpi import router as cpi_router
 from services.api.routes_dgca import router as dgca_router
 from services.api.routes_debug import router as debug_router
@@ -96,16 +238,39 @@ app.include_router(debug_router)
 app.include_router(data_router)
 app.include_router(admin_router)
 
+# Mount alias for /api/v1/backtest
+@app.get("/api/v1/backtest", response_model=BacktestResult, tags=["Econometric Validation"])
+def api_v1_backtest(mode: str = Query("historical")) -> BacktestResult:
+    return run_30day_backtest(mode=mode)
+
+@app.get("/api/v1/routes", tags=["Core Aviation Data"])
+def api_v1_routes() -> dict:
+    return list_routes()
+
+@app.get("/api/v1/carriers", response_model=List[CarrierIndex], tags=["Core Aviation Data"])
+def api_v1_carriers(mode: str = Query("combined")) -> List[CarrierIndex]:
+    return compute_carrier_indices(mode=mode)
+
+@app.get("/api/v1/fares", tags=["Core Aviation Data"])
+def api_v1_fares(
+    origin: Optional[str] = None,
+    destination: Optional[str] = None,
+    carrier: Optional[str] = None,
+    booking_window: Optional[str] = None,
+    mode: str = "combined",
+    limit: int = 100,
+):
+    return list_fares(origin=origin, destination=destination, carrier=carrier, booking_window=booking_window, mode=mode, limit=limit)
+
+@app.get("/api/v1/index", response_model=NationalCompositeCPI, tags=["Econometric Index"])
+def api_v1_index(target_date: Optional[date] = None, mode: str = "live"):
+    return compute_national_composite_cpi(target_date, mode=mode)
 
 
-
-# --- Startup ---
+# --- Startup & Shutdown ---
 @app.on_event("startup")
 def on_startup() -> None:
-    # Print safe runtime diagnostic summary (dependencies, OS, DB target, flags)
     print_startup_diagnostics(_logger)
-
-    # Run DB init and scheduler asynchronously in a background thread so web server responds to Railway /health immediately (<10ms)
     import threading
     def _background_startup():
         try:
@@ -123,12 +288,6 @@ def on_startup() -> None:
 @app.on_event("shutdown")
 def on_shutdown() -> None:
     _stop_background_scheduler()
-
-
-# --- Health check (must always work) ---
-@app.get("/health")
-def health_check() -> dict:
-    return {"status": "ok", "service": "vayu-cpi-api"}
 
 
 # --------------- Background Scheduler ---------------
@@ -151,7 +310,6 @@ def _start_background_scheduler() -> None:
         _scheduler.start()
         _logger.info("Background scheduler started (every 6 hours)")
 
-        # Run first sweep in a background thread (non-blocking)
         import threading
         threading.Thread(target=run_ingestion_sweep, daemon=True).start()
     except Exception as e:

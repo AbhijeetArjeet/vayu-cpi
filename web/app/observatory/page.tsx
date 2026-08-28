@@ -724,7 +724,7 @@ function ObservatoryContent() {
                     <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-xs">
                       <span>{m.origin} → {m.destination}</span>
                       <span className="px-1.5 py-0.2 rounded text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        T-{m.horizon_days}
+                        T+{m.horizon_days}
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-500">GeoMean Fare: ₹{m.current_geom_mean.toLocaleString()}</span>
@@ -814,8 +814,8 @@ function ObservatoryContent() {
               </div>
 
               <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
-                <strong className="text-emerald-400 block font-bold">3. Horizon Alpha Blending</strong>
-                <p>Blends departure horizons: T-30 Advance Booking (35%), T-7 Mid-Horizon (45%), and T-1 Tatkal Spot Booking (20%).</p>
+                <strong className="text-emerald-400 block font-bold">3. Advance Booking Horizon Blending</strong>
+                <p>Blends departure horizons: T+45 (15%), T+30 (20%), T+15 (25%), T+7 (25%), and T+1 Spot Booking (15%).</p>
               </div>
 
               <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-1">

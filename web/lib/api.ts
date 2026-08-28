@@ -5,12 +5,57 @@ export type DataMode = 'live' | 'historical' | 'combined';
 export interface NationalCompositeCPI {
   calculation_date: string;
   composite_index: number;
-  advance_sub_index: number;
-  spot_sub_index: number;
+  daily_change_pct?: number;
+  weekly_change_pct?: number;
+  monthly_change_pct?: number;
+  spot_sub_index: number;         // T+1
+  week_sub_index?: number;        // T+7
+  fortnight_sub_index?: number;   // T+15
+  advance_sub_index: number;      // T+30
+  long_advance_sub_index?: number;// T+45
   tracked_corridors: number;
+  total_observations?: number;
   dgca_traffic_coverage_pct: number;
   data_mode?: DataMode;
   source_label?: string;
+}
+
+export interface CarrierIndex {
+  carrier: string;
+  carrier_code: string;
+  sample_size: number;
+  current_geom_mean: number;
+  base_geom_mean: number;
+  carrier_index: number;
+  market_share_pct: number;
+}
+
+export interface BacktestMetric {
+  period_start: string;
+  period_end: string;
+  observation_days: number;
+  mae: number;
+  rmse: number;
+  mape: number;
+  pearson_correlation: number;
+  reference_dataset: string;
+  model_name: string;
+  is_simulation: boolean;
+  validation_status: string;
+}
+
+export interface BacktestDailyComparison {
+  date: string;
+  vayu_index: number;
+  reference_index: number;
+  absolute_error: number;
+  percentage_error: number;
+}
+
+export interface BacktestResult {
+  metrics: BacktestMetric;
+  series: BacktestDailyComparison[];
+  methodology_notes: string;
 }
 
 export interface SurgeAlert {
@@ -29,6 +74,7 @@ export interface RouteJevonsIndex {
   origin: string;
   destination: string;
   horizon_days: number;
+  booking_window?: string;
   current_geom_mean: number;
   base_geom_mean: number;
   jevons_index: number;
@@ -155,6 +201,27 @@ export const fetchAirfareIndexSeries = async (days_back: number = 30, mode: Data
   } catch (err) {
     console.error("[API_ERROR] fetchAirfareIndexSeries failed:", err);
     return [];
+  }
+};
+
+export const fetchCarriers = async (mode: DataMode = 'combined'): Promise<CarrierIndex[]> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/carriers?mode=${mode}`);
+    if (Array.isArray(response.data)) return response.data;
+    return [];
+  } catch (err) {
+    console.error("[API_ERROR] fetchCarriers failed:", err);
+    return [];
+  }
+};
+
+export const fetchBacktestResults = async (mode: string = 'historical'): Promise<BacktestResult | null> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/backtest?mode=${mode}`);
+    return response.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchBacktestResults failed:", err);
+    return null;
   }
 };
 
@@ -320,5 +387,3 @@ export const triggerLiveSweep = async () => {
 export const exportCsv = (mode: DataMode = 'live') => {
   window.open(`${API_BASE_URL}/api/v1/cpi/export/csv?mode=${mode}`, '_blank');
 };
-
-

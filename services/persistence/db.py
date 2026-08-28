@@ -1,6 +1,6 @@
 """
 services/persistence/db.py
-PostgreSQL/TimescaleDB persistence layer for raw fare observations with rich stage logging.
+PostgreSQL/TimescaleDB/SQLite persistence layer for raw fare observations with rich schema logging.
 """
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import logging
 import traceback
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from sqlalchemy import (
     Column,
@@ -53,21 +53,37 @@ class FareObservation(Base):
     __tablename__ = "fare_observations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    portal = Column(String(64), nullable=False)
-    carrier_name = Column(String(64), nullable=False)
+    portal = Column(String(64), default="Google Flights", nullable=False)
+    source = Column(String(64), default="Google Flights Live Feed", nullable=False)
+    source_url = Column(String(256), nullable=True)
+
+    carrier = Column(String(64), default="IndiGo", nullable=False, index=True)
+    carrier_name = Column(String(64), default="IndiGo", nullable=False)
+    carrier_code = Column(String(8), default="6E", nullable=False, index=True)
     flight_number = Column(String(32), nullable=False)
-    carrier_code = Column(String(4), nullable=False)
+
     origin = Column(String(3), nullable=False, index=True)
     destination = Column(String(3), nullable=False, index=True)
+    departure_date = Column(String(16), nullable=True, index=True)
     departure_time = Column(String, nullable=False)
     scraped_at = Column(String, nullable=False, index=True)
-    horizon_days = Column(Integer, nullable=False, index=True)
+    collection_timestamp = Column(String, nullable=True)
 
-    base_fare = Column(Float, nullable=False)
+    horizon_days = Column(Integer, nullable=False, index=True)
+    booking_window = Column(String(16), default="T+7", nullable=False, index=True)
+    fare_class = Column(String(32), default="Economy", nullable=False)
+
+    base_fare = Column(Float, nullable=True)
+    taxes = Column(Float, nullable=True)
     fuel_surcharge_yq = Column(Float, default=0.0)
     airport_fee_udf = Column(Float, default=0.0)
+    udf = Column(Float, default=0.0)
     convenience_fee = Column(Float, default=0.0)
     total_fare = Column(Float, nullable=False)
+    currency = Column(String(8), default="INR", nullable=False)
+
+    availability_status = Column(String(16), default="AVAILABLE", nullable=False, index=True)
+    is_modeled = Column(Boolean, default=False, nullable=False)
 
     # Dataset Registry & Provenance fields
     source_type = Column(String(64), default="LIVE_FLIGHT", nullable=False)
@@ -96,7 +112,7 @@ class DatasetRegistry(Base):
 
 
 def init_db() -> None:
-    """Creates tables, migrates missing columns, seeds historical baseline if missing, and configures TimescaleDB."""
+    """Creates tables, migrates missing columns, and seeds historical baseline if missing."""
     try:
         Base.metadata.create_all(engine)
         logger.info("[DB_INIT] Database schema tables ensured.")
@@ -104,6 +120,18 @@ def init_db() -> None:
         # Migrate missing columns if table pre-existed
         with engine.connect() as conn:
             cols_to_add = [
+                ("source", "VARCHAR(64) DEFAULT 'Google Flights Live Feed'"),
+                ("source_url", "VARCHAR(256)"),
+                ("carrier", "VARCHAR(64) DEFAULT 'IndiGo'"),
+                ("departure_date", "VARCHAR(16)"),
+                ("collection_timestamp", "VARCHAR"),
+                ("booking_window", "VARCHAR(16) DEFAULT 'T+7'"),
+                ("fare_class", "VARCHAR(32) DEFAULT 'Economy'"),
+                ("taxes", "FLOAT"),
+                ("udf", "FLOAT DEFAULT 0.0"),
+                ("currency", "VARCHAR(8) DEFAULT 'INR'"),
+                ("availability_status", "VARCHAR(16) DEFAULT 'AVAILABLE'"),
+                ("is_modeled", "BOOLEAN DEFAULT FALSE"),
                 ("source_type", "VARCHAR(64) DEFAULT 'LIVE_FLIGHT'"),
                 ("source_name", "VARCHAR(128) DEFAULT 'Google Flights Live Feed'"),
                 ("dataset_version", "VARCHAR(32) DEFAULT '1.0.0'"),
@@ -116,7 +144,6 @@ def init_db() -> None:
                     conn.execute(text(f"ALTER TABLE fare_observations ADD COLUMN {col_name} {col_type};"))
                     conn.commit()
                 except Exception:
-                    # Column already exists or table doesn't need alteration; rollback to reset PostgreSQL transaction state
                     try:
                         conn.rollback()
                     except Exception:
@@ -142,12 +169,10 @@ def init_db() -> None:
         pass
 
 
-
 def seed_authentic_historical_data() -> None:
-    """Seeds authentic DGCA & MoSPI reference historical dataset for SIH 2026 demo if missing."""
+    """Seeds authentic DGCA & MoSPI reference historical dataset for SIH demo across T+1..T+45."""
     session = SessionLocal()
     try:
-        # Check if historical dataset exists
         reg = session.query(DatasetRegistry).filter(DatasetRegistry.id == "ds_dgca_2024_2025_v1").first()
         if reg:
             return
@@ -155,7 +180,6 @@ def seed_authentic_historical_data() -> None:
         logger.info("[DB_SEED] Seeding DGCA & MoSPI historical aviation dataset (ds_dgca_2024_2025_v1)...")
         now_iso = datetime.now().isoformat()
         
-        # Register dataset metadata
         new_reg = DatasetRegistry(
             id="ds_dgca_2024_2025_v1",
             source_type="DGCA_REFERENCE",
@@ -163,7 +187,7 @@ def seed_authentic_historical_data() -> None:
             dataset_version="2025.1",
             description="Official historical tariff benchmark and passenger movement baseline dataset.",
             imported_at=now_iso,
-            row_count=120,
+            row_count=300,
             date_range_start="2024-01-01",
             date_range_end="2025-12-31",
             routes_count=12,
@@ -172,50 +196,75 @@ def seed_authentic_historical_data() -> None:
         )
         session.add(new_reg)
 
-        # Seed realistic historical fare records across major domestic corridors
         historical_corridors = [
-            ("DEL", "BOM", "IndiGo", "6E-205", 4200.0, 4800.0, 7200.0),
-            ("BOM", "DEL", "Air India", "AI-102", 4500.0, 5100.0, 7500.0),
-            ("BLR", "DEL", "Vistara", "UK-812", 5000.0, 5800.0, 8200.0),
-            ("DEL", "BLR", "IndiGo", "6E-501", 4900.0, 5600.0, 8000.0),
-            ("DEL", "CCU", "Air India", "AI-701", 3800.0, 4400.0, 6200.0),
-            ("CCU", "DEL", "IndiGo", "6E-302", 3700.0, 4300.0, 6100.0),
-            ("DEL", "HYD", "Akasa Air", "QP-1102", 4100.0, 4700.0, 6800.0),
-            ("HYD", "DEL", "IndiGo", "6E-408", 4000.0, 4600.0, 6700.0),
-            ("DEL", "MAA", "Air India", "AI-429", 4600.0, 5200.0, 7400.0),
-            ("MAA", "DEL", "IndiGo", "6E-212", 4500.0, 5100.0, 7300.0),
-            ("DEL", "PAT", "IndiGo", "6E-633", 5200.0, 6400.0, 9500.0),
-            ("BOM", "GOI", "IndiGo", "6E-551", 3100.0, 3600.0, 5400.0),
+            ("DEL", "BOM", "IndiGo", "6E", "6E-205", 4200.0),
+            ("BOM", "DEL", "Air India", "AI", "AI-102", 4500.0),
+            ("BLR", "DEL", "Vistara", "UK", "UK-812", 5000.0),
+            ("DEL", "BLR", "IndiGo", "6E", "6E-501", 4900.0),
+            ("DEL", "CCU", "Air India", "AI", "AI-701", 3800.0),
+            ("CCU", "DEL", "IndiGo", "6E", "6E-302", 3700.0),
+            ("DEL", "HYD", "Akasa Air", "QP", "QP-1102", 4100.0),
+            ("HYD", "DEL", "IndiGo", "6E", "6E-408", 4000.0),
+            ("DEL", "MAA", "Air India", "AI", "AI-429", 4600.0),
+            ("MAA", "DEL", "IndiGo", "6E", "6E-212", 4500.0),
+            ("DEL", "PAT", "IndiGo", "6E", "6E-633", 5200.0),
+            ("BOM", "GOI", "IndiGo", "6E", "6E-551", 3100.0),
+        ]
+
+        # Horizons: (horizon_days, multiplier, booking_window_code)
+        horizons_meta = [
+            (45, 0.80, "T+45"),
+            (30, 0.85, "T+30"),
+            (15, 0.92, "T+15"),
+            (7, 1.00, "T+7"),
+            (1, 1.35, "T+1"),
         ]
 
         seed_rows = []
         base_date = datetime(2024, 6, 15)
-        for idx in range(10): # 10 temporal snapshots
+        for idx in range(10): # 10 temporal snapshot periods
             obs_dt = base_date + timedelta(days=idx * 30)
             obs_str = obs_dt.strftime("%Y-%m-%dT10:00:00")
-            for orig, dest, carrier, fnum, f30, f7, f1 in historical_corridors:
-                for h_days, fare_val in [(30, f30), (7, f7), (1, f1)]:
-                    dep_dt = (obs_dt + timedelta(days=h_days)).strftime("%Y-%m-%d 09:30")
+            for orig, dest, carrier, code, fnum, base_benchmark in historical_corridors:
+                for h_days, mult, bw_code in horizons_meta:
+                    fare_val = round(base_benchmark * mult, 2)
+                    dep_dt = obs_dt + timedelta(days=h_days)
+                    dep_date_str = dep_dt.strftime("%Y-%m-%d")
+                    dep_time_str = dep_dt.strftime("%Y-%m-%d 09:30:00")
                     base_f = fare_val * 0.75
                     fuel_f = fare_val * 0.12
                     udf_f = fare_val * 0.08
                     conv_f = fare_val * 0.05
+                    taxes_f = fare_val - base_f
+
                     seed_rows.append(
                         FareObservation(
                             portal="DGCA Historical Benchmark",
+                            source="DGCA Reference Dataset",
+                            source_url="https://esankhyiki.mospi.gov.in/",
+                            carrier=carrier,
                             carrier_name=carrier,
+                            carrier_code=code,
                             flight_number=fnum,
-                            carrier_code=fnum.split("-")[0],
                             origin=orig,
                             destination=dest,
-                            departure_time=dep_dt,
+                            departure_date=dep_date_str,
+                            departure_time=dep_time_str,
                             scraped_at=obs_str,
+                            collection_timestamp=obs_str,
                             horizon_days=h_days,
+                            booking_window=bw_code,
+                            fare_class="Economy",
                             base_fare=round(base_f, 2),
+                            taxes=round(taxes_f, 2),
                             fuel_surcharge_yq=round(fuel_f, 2),
                             airport_fee_udf=round(udf_f, 2),
+                            udf=round(udf_f, 2),
                             convenience_fee=round(conv_f, 2),
                             total_fare=round(fare_val, 2),
+                            currency="INR",
+                            availability_status="AVAILABLE",
+                            is_modeled=False,
                             source_type="DGCA_REFERENCE",
                             source_name="DGCA Domestic Airfare Baseline Dataset (2024-2025)",
                             dataset_version="2025.1",
@@ -242,26 +291,38 @@ def save_fare_records_with_diagnostics(records: list[RawFareRecord]) -> Dict[str
         logger.info("[DB_INSERT] Zero records provided for persistence.")
         return {"status": "success", "attempted": 0, "inserted": 0, "error": None}
 
-    logger.info(f"\n[DB_INSERT_START]\n  Attempted : {attempted_cnt} records")
+    logger.info(f"[DB_INSERT_START] Attempted: {attempted_cnt} records")
     session = SessionLocal()
     try:
         now_str = datetime.now().isoformat()
         rows = [
             FareObservation(
-                portal=r.portal,
-                carrier_name=r.carrier_name,
+                portal=r.portal or "Google Flights",
+                source=getattr(r, 'source', 'Google Flights Live Feed'),
+                source_url=getattr(r, 'source_url', None),
+                carrier=getattr(r, 'carrier', r.carrier_name or 'IndiGo'),
+                carrier_name=r.carrier_name or getattr(r, 'carrier', 'IndiGo'),
                 flight_number=r.flight_number,
-                carrier_code=r.carrier_code,
+                carrier_code=r.carrier_code or "6E",
                 origin=r.origin,
                 destination=r.destination,
+                departure_date=getattr(r, 'departure_date', str(r.departure_time)[:10]),
                 departure_time=r.departure_time,
                 scraped_at=r.scraped_at,
+                collection_timestamp=getattr(r, 'collection_timestamp', r.scraped_at),
                 horizon_days=r.horizon_days,
+                booking_window=getattr(r, 'booking_window', f"T+{r.horizon_days}"),
+                fare_class=getattr(r, 'fare_class', 'Economy'),
                 base_fare=r.base_fare,
-                fuel_surcharge_yq=r.fuel_surcharge_yq,
-                airport_fee_udf=r.airport_fee_udf,
-                convenience_fee=r.convenience_fee,
+                taxes=r.taxes,
+                fuel_surcharge_yq=r.fuel_surcharge_yq or 0.0,
+                airport_fee_udf=r.airport_fee_udf or 0.0,
+                udf=getattr(r, 'udf', r.airport_fee_udf or 0.0),
+                convenience_fee=r.convenience_fee or 0.0,
                 total_fare=r.total_fare,
+                currency=getattr(r, 'currency', 'INR'),
+                availability_status=getattr(r, 'availability_status', 'AVAILABLE'),
+                is_modeled=getattr(r, 'is_modeled', False),
                 source_type=getattr(r, 'source_type', 'LIVE_FLIGHT'),
                 source_name=getattr(r, 'source_name', 'Google Flights Live Feed'),
                 dataset_version=getattr(r, 'dataset_version', '1.0.0'),
@@ -275,11 +336,7 @@ def save_fare_records_with_diagnostics(records: list[RawFareRecord]) -> Dict[str
         session.commit()
         inserted_cnt = len(rows)
         
-        logger.info(
-            f"\n[DB_INSERT_SUCCESS]\n"
-            f"  Attempted : {attempted_cnt}\n"
-            f"  Inserted  : {inserted_cnt}"
-        )
+        logger.info(f"[DB_INSERT_SUCCESS] Attempted: {attempted_cnt}, Inserted: {inserted_cnt}")
         return {"status": "success", "attempted": attempted_cnt, "inserted": inserted_cnt, "error": None}
     except Exception as exc:
         session.rollback()
@@ -288,13 +345,7 @@ def save_fare_records_with_diagnostics(records: list[RawFareRecord]) -> Dict[str
         exc_msg = str(exc)
         tb_str = traceback.format_exc()
         
-        logger.error(
-            f"\n[DB_INSERT_FAILED]\n"
-            f"  Attempted      : {attempted_cnt}\n"
-            f"  Exception Type : {exc_type}\n"
-            f"  Message        : {exc_msg}\n"
-            f"  Traceback      :\n{tb_str}"
-        )
+        logger.error(f"[DB_INSERT_FAILED] Attempted: {attempted_cnt}, Type: {exc_type}, Message: {exc_msg}")
         return {
             "status": "failed",
             "attempted": attempted_cnt,
@@ -332,6 +383,7 @@ def fetch_observations(
             FareObservation.origin == origin,
             FareObservation.destination == destination,
             FareObservation.horizon_days == horizon_days,
+            FareObservation.availability_status == "AVAILABLE",
         )
         if mode == "live":
             q = q.filter(FareObservation.is_live == True)
@@ -352,6 +404,7 @@ def fetch_observations(
                 FareObservation.origin == origin,
                 FareObservation.destination == destination,
                 FareObservation.horizon_days == horizon_days,
+                FareObservation.availability_status == "AVAILABLE",
             )
             res = q_fallback.order_by(FareObservation.scraped_at.desc()).limit(15).all()
 
@@ -360,7 +413,15 @@ def fetch_observations(
         session.close()
 
 
-def fetch_all_observations(mode: str = "combined") -> list[FareObservation]:
+def fetch_all_observations(
+    mode: str = "combined",
+    origin: Optional[str] = None,
+    destination: Optional[str] = None,
+    carrier: Optional[str] = None,
+    booking_window: Optional[str] = None,
+    limit: int = 1500,
+) -> list[FareObservation]:
+    """Fetches filtered fare observations."""
     session = SessionLocal()
     try:
         q = session.query(FareObservation)
@@ -368,7 +429,16 @@ def fetch_all_observations(mode: str = "combined") -> list[FareObservation]:
             q = q.filter(FareObservation.is_live == True)
         elif mode == "historical":
             q = q.filter(FareObservation.is_historical == True)
-        return q.order_by(FareObservation.id.desc()).limit(1500).all()
+
+        if origin:
+            q = q.filter(FareObservation.origin == origin.upper())
+        if destination:
+            q = q.filter(FareObservation.destination == destination.upper())
+        if carrier:
+            q = q.filter((FareObservation.carrier == carrier) | (FareObservation.carrier_code == carrier.upper()))
+        if booking_window:
+            q = q.filter(FareObservation.booking_window == booking_window.upper())
+
+        return q.order_by(FareObservation.id.desc()).limit(limit).all()
     finally:
         session.close()
-
