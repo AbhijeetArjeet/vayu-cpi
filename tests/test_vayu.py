@@ -212,6 +212,19 @@ def test_modular_connectors_registry():
     ai = get_connector("AI")
     assert ai.carrier_code == "AI"
 
+    # OTA Connectors
+    mmt = get_connector("MMT")
+    assert mmt.is_ota is True
+    assert mmt.name == "MakeMyTripConnector"
+
+    emt = get_connector("EMT")
+    assert emt.is_ota is True
+    assert emt.name == "EaseMyTripConnector"
+
+    ct = get_connector("CT")
+    assert ct.is_ota is True
+    assert ct.name == "CleartripConnector"
+
     sim = get_connector("SIMULATED")
     quotes = sim.fetch_quotes("DEL", "BOM", 7)
     assert len(quotes) > 0
