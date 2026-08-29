@@ -22,24 +22,25 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { triggerLiveSweep, fetchMarketCoverage } from "../lib/api";
+import { triggerLiveSweep, fetchMarketCoverage, checkBackendHealth } from "../lib/api";
 
 export default function Navbar() {
   const pathname = usePathname();
   const { theme, toggleTheme, demoMode, setDemoMode, lastUpdated, setLastUpdated } = useVayuTheme();
   const [isSweeping, setIsSweeping] = useState(false);
-  const [minutesAgo, setMinutesAgo] = useState<number | null>(null);
+  const [backendStatus, setBackendStatus] = useState<'ONLINE' | 'DEGRADED' | 'OFFLINE'>('ONLINE');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Fetch real market coverage to get actual ingestion timestamp
-    fetchMarketCoverage().then((cov) => {
-      if (cov) {
-        setMinutesAgo(0);
-      } else {
-        setMinutesAgo(null);
-      }
-    });
+    // Check real backend health status
+    const updateHealth = () => {
+      checkBackendHealth().then((status) => {
+        setBackendStatus(status);
+      });
+    };
+    updateHealth();
+    const interval = setInterval(updateHealth, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleManualSweep = async () => {
@@ -47,31 +48,28 @@ export default function Navbar() {
     try {
       await triggerLiveSweep();
       setLastUpdated(new Date().toLocaleTimeString());
-      setMinutesAgo(0);
+      setBackendStatus('ONLINE');
     } catch (e) {
       console.error(e);
+      setBackendStatus('DEGRADED');
     } finally {
       setIsSweeping(false);
     }
   };
 
-  // Freshness thresholds
+  // Freshness & health thresholds
   let statusColor = "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-  let statusText = "LIVE";
+  let statusText = "ONLINE";
   let dotBg = "bg-emerald-500";
 
-  if (minutesAgo === null) {
+  if (backendStatus === "OFFLINE") {
     statusColor = "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20";
     statusText = "OFFLINE";
     dotBg = "bg-rose-500";
-  } else if (minutesAgo >= 360 && minutesAgo < 1440) {
+  } else if (backendStatus === "DEGRADED") {
     statusColor = "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20";
-    statusText = "STALE (6H+)";
+    statusText = "DEGRADED";
     dotBg = "bg-amber-500";
-  } else if (minutesAgo >= 1440) {
-    statusColor = "text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20";
-    statusText = "OFFLINE (24H+)";
-    dotBg = "bg-rose-500";
   }
 
   const navLinks = [

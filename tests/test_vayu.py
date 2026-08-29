@@ -466,3 +466,110 @@ def test_live_flight_scraper_api():
     assert "summary" in data
     assert "offers" in data
     assert "diagnostics" in data
+
+
+# 14. Centralized IST Timezone Handling
+def test_timezone_ist_handling():
+    from core.timezone import now_ist, today_ist, iso_now_ist
+    dt = now_ist()
+    assert dt.tzinfo is not None
+    # Check that UTC offset is +05:30 (19800 seconds)
+    assert dt.utcoffset().total_seconds() == 19800
+    assert isinstance(today_ist(), date)
+    assert "T" in iso_now_ist()
+
+
+# 15. Empty Dataset & Zero-Division Safety
+def test_empty_dataset_graceful_handling():
+    from services.engine.index_calculator import _geometric_mean, compute_national_composite_cpi
+    assert _geometric_mean([]) == 0.0
+    assert _geometric_mean([0.0, -100.0]) == 0.0
+    # National CPI on empty dataset must degrade gracefully without crashing
+    cpi = compute_national_composite_cpi(mode="live")
+    assert isinstance(cpi.composite_index, float)
+    assert cpi.composite_index > 0.0
+
+
+# 16. Invalid & Negative Fare Rejection
+def test_invalid_and_negative_fare_rejection():
+    from services.engine.normalizer import normalize
+    from services.persistence.db import FareObservation
+    bad_obs = [
+        FareObservation(flight_number="6E-1", scraped_at="2026-08-29T10:00:00", departure_time="2026-09-05", total_fare=-500.0, availability_status="AVAILABLE"),
+        FareObservation(flight_number="6E-2", scraped_at="2026-08-29T10:00:00", departure_time="2026-09-05", total_fare=0.0, availability_status="AVAILABLE"),
+        FareObservation(flight_number="6E-3", scraped_at="2026-08-29T10:00:00", departure_time="2026-09-05", total_fare=4500.0, availability_status="AVAILABLE"),
+    ]
+    prices = normalize(bad_obs)
+    assert len(prices) == 1
+    assert prices[0] == 4500.0
+
+
+# 17. End-to-End Database Smoke Test Lifecycle
+def test_database_smoke_lifecycle():
+    from services.persistence.db import (
+        init_db,
+        save_fare_records_with_diagnostics,
+        fetch_observations,
+        SessionLocal,
+        engine,
+        text,
+    )
+    init_db()
+
+    # 1. Insertion
+    test_record = RawFareRecord(
+        portal="SmokeTest Portal",
+        source="SmokeTest Live Feed",
+        carrier="IndiGo",
+        carrier_name="IndiGo",
+        carrier_code="6E",
+        flight_number="6E-9999",
+        origin="DEL",
+        destination="BOM",
+        departure_time="2026-09-10 10:00:00",
+        scraped_at="2026-08-29T10:00:00",
+        horizon_days=7,
+        booking_window="T+7",
+        base_fare=3500.0,
+        taxes=1200.0,
+        fuel_surcharge_yq=600.0,
+        airport_fee_udf=650.0,
+        convenience_fee=300.0,
+        total_fare=4700.0,
+        currency="INR",
+        availability_status="AVAILABLE",
+        is_modeled=False,
+        is_ota_direct=True,
+    )
+
+    res = save_fare_records_with_diagnostics([test_record])
+    assert res["status"] == "success"
+    assert res["inserted"] == 1
+
+    # 2. Retrieval
+    obs = fetch_observations("DEL", "BOM", 7, mode="live")
+    assert len(obs) > 0
+    assert any(o.flight_number == "6E-9999" for o in obs)
+
+    # 3. Transaction Rollback Safety on Bad Execution
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("SELECT * FROM non_existent_table_smoke_test;"))
+        except Exception:
+            conn.rollback()  # Verify rollback succeeds cleanly
+
+
+# 18. Dataset Registry Endpoints
+def test_dataset_registry_endpoints():
+    from services.api.main import app
+    from fastapi.testclient import TestClient
+    init_db()
+    client = TestClient(app)
+
+    res = client.get("/api/v1/data/datasets")
+    assert res.status_code == 200
+    data = res.json()
+    assert isinstance(data, list)
+    assert len(data) > 0
+    assert "source_type" in data[0]
+    assert "dataset_version" in data[0]

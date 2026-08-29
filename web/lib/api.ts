@@ -180,7 +180,32 @@ export interface SweepState {
   avg_fetch_ms: number;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://web-production-3741e.up.railway.app';
+export const getApiBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:8000';
+    }
+  }
+  return 'https://web-production-3741e.up.railway.app';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+export const checkBackendHealth = async (): Promise<'ONLINE' | 'DEGRADED' | 'OFFLINE'> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/health`, { timeout: 4000 });
+    if (res.data?.status === 'ok') {
+      return 'ONLINE';
+    }
+    return 'DEGRADED';
+  } catch {
+    return 'OFFLINE';
+  }
+};
 
 export const fetchAirfareIndex = async (mode: DataMode = 'live'): Promise<NationalCompositeCPI | null> => {
   try {

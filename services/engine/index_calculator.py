@@ -23,6 +23,7 @@ import math
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Any
 
+from core.timezone import today_ist
 from core.dgca_weights import (
     HORIZON_ALPHA,
     ROUTE_WEIGHTS,
@@ -58,7 +59,7 @@ def compute_route_jevons_index(
     """
     Computes Jevons geometric mean micro-index for one route and booking horizon.
     """
-    calculation_date = calculation_date or date.today()
+    calculation_date = calculation_date or today_ist()
     now_max = datetime.combine(calculation_date, datetime.max.time())
     now_min = datetime.combine(calculation_date, datetime.min.time())
 
@@ -157,7 +158,7 @@ def compute_national_composite_cpi(
     """
     Computes national weighted composite index (Base 2024 = 100) and all 5 horizon sub-indices.
     """
-    calculation_date = calculation_date or date.today()
+    calculation_date = calculation_date or today_ist()
     calc_date_str = calculation_date.isoformat()
 
     source_label_map = {
