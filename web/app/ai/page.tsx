@@ -38,8 +38,13 @@ const SUGGESTED_QUESTIONS = [
   'Compare Delhi ➔ Mumbai and Bengaluru ➔ Delhi price dynamics.',
 ];
 
-export default function AIAnalystPage() {
-  const [question, setQuestion] = useState<string>('');
+import { useSearchParams } from 'next/navigation';
+
+function AIAnalystContent() {
+  const searchParams = useSearchParams();
+  const initialQ = searchParams?.get('q') || '';
+
+  const [question, setQuestion] = useState<string>(initialQ);
   const [loading, setLoading] = useState<boolean>(false);
   const [response, setResponse] = useState<AIAnalysisResponse | null>(null);
   const [aiStatus, setAiStatus] = useState<{ status: string; active_providers: string[]; primary_provider: string } | null>(null);
@@ -57,12 +62,16 @@ export default function AIAnalystPage() {
         if (stRes) setAiStatus(stRes);
         if (mlRes) setMlMetrics(mlRes);
         if (wRes) setWeeklyData(wRes);
+
+        if (initialQ) {
+          handleAsk(initialQ);
+        }
       } catch (e) {
         console.error('Failed to init AI page:', e);
       }
     }
     init();
-  }, []);
+  }, [initialQ]);
 
   const handleAsk = async (queryText?: string) => {
     const qToAsk = queryText || question;
@@ -314,5 +323,13 @@ export default function AIAnalystPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AIAnalystPage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-slate-950 p-8 text-slate-400">Loading VAYU AI Analyst...</div>}>
+      <AIAnalystContent />
+    </React.Suspense>
   );
 }

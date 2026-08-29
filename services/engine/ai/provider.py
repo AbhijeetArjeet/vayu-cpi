@@ -39,55 +39,66 @@ STRICT GROUNDING RULES:
 
 
 def _call_groq_api(prompt: str, context_str: str, api_key: str) -> Optional[str]:
-    """Calls Groq Cloud API with Llama-3.3-70B."""
+    """Calls Groq Cloud API with resilient model fallback."""
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {api_key.strip()}",
         "Content-Type": "application/json",
         "User-Agent": "VAYU-CPI-Analyst/1.0",
     }
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": [
-            {"role": "system", "content": SYSTEM_GROUNDING_PROMPT},
-            {"role": "user", "content": f"STRUCTURED VAYU INTELLIGENCE CONTEXT:\n{context_str}\n\nUSER QUESTION:\n{prompt}"},
-        ],
-        "temperature": 0.2,
-        "max_tokens": 800,
-    }
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=8) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
-            return res_data["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        logger.warning(f"[AI_PROVIDER] Groq API call failed: {e}")
-        return None
+    models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192"]
+    for model_name in models:
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": SYSTEM_GROUNDING_PROMPT},
+                {"role": "user", "content": f"STRUCTURED VAYU INTELLIGENCE CONTEXT:\n{context_str}\n\nUSER QUESTION:\n{prompt}"},
+            ],
+            "temperature": 0.2,
+            "max_tokens": 800,
+        }
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=6) as response:
+                res_data = json.loads(response.read().decode("utf-8"))
+                return res_data["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            logger.warning(f"[AI_PROVIDER] Groq ({model_name}) attempt failed: {e}")
+            continue
+    return None
 
 
 def _call_gemini_api(prompt: str, context_str: str, api_key: str) -> Optional[str]:
-    """Calls Google Gemini API with Gemini 1.5 Flash."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-    headers = {"Content-Type": "application/json"}
-    payload = {
-        "system_instruction": {"parts": [{"text": SYSTEM_GROUNDING_PROMPT}]},
-        "contents": [
-            {
-                "parts": [
-                    {"text": f"STRUCTURED VAYU CONTEXT:\n{context_str}\n\nUSER QUESTION:\n{prompt}"}
-                ]
-            }
-        ],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800},
-    }
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=8) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
-            return res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except Exception as e:
-        logger.warning(f"[AI_PROVIDER] Gemini API call failed: {e}")
-        return None
+    """Calls Google Gemini API with Gemini 1.5 Flash / 2.0 Flash."""
+    clean_key = api_key.strip()
+    models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+    
+    for model_name in models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={clean_key}"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {clean_key}",
+        }
+        payload = {
+            "system_instruction": {"parts": [{"text": SYSTEM_GROUNDING_PROMPT}]},
+            "contents": [
+                {
+                    "parts": [
+                        {"text": f"STRUCTURED VAYU CONTEXT:\n{context_str}\n\nUSER QUESTION:\n{prompt}"}
+                    ]
+                }
+            ],
+            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800},
+        }
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=6) as response:
+                res_data = json.loads(response.read().decode("utf-8"))
+                return res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception as e:
+            logger.warning(f"[AI_PROVIDER] Gemini ({model_name}) attempt failed: {e}")
+            continue
+    return None
 
 
 def _call_openrouter_api(prompt: str, context_str: str, api_key: str) -> Optional[str]:

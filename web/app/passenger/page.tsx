@@ -675,14 +675,23 @@ export default function PassengerIntelligencePage() {
               ))}
             </div>
 
-            <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
               <span>Model Confidence: <strong className="text-cyan-400">{Math.round((recommendation?.confidence_score || 0.82) * 100)}%</strong></span>
-              <button
-                onClick={() => setShowWhyModal(false)}
-                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/ai?q=Why should I ${recommendation?.recommendation} for ${origin} to ${destination} on ${selectedDay?.date}?`}
+                  className="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-bold flex items-center gap-1.5 transition border border-cyan-500/40"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Ask VAYU AI Analyst
+                </Link>
+                <button
+                  onClick={() => setShowWhyModal(false)}
+                  className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
