@@ -187,22 +187,12 @@ export interface SweepState {
 }
 
 export const getApiBaseUrl = (): string => {
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return 'http://localhost:8000';
-    }
-  }
   if (process.env.NEXT_PUBLIC_API_URL) {
     const envUrl = process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
-    if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
-      return envUrl;
-    }
+    if (envUrl) return envUrl;
   }
   return 'https://web-production-3741e.up.railway.app';
 };
-
-const API_BASE_URL = getApiBaseUrl();
 
 export const checkBackendHealth = async (): Promise<'ONLINE' | 'DEGRADED' | 'OFFLINE'> => {
   const url = getApiBaseUrl();
@@ -307,7 +297,7 @@ export const fetchAllRoutesCurrent = async (mode: DataMode = 'live', period_days
 
 export const fetchRouteConcentration = async (): Promise<RouteConcentration | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/dgca/route-concentration`);
+    const response = await axios.get(`${getApiBaseUrl()}/api/v1/dgca/route-concentration`);
     return response.data;
   } catch (error) {
     console.error("[API_ERROR] fetchRouteConcentration failed:", error);
@@ -317,7 +307,7 @@ export const fetchRouteConcentration = async (): Promise<RouteConcentration | nu
 
 export const fetchMarketCoverage = async (): Promise<MarketCoverageSummary | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/coverage`);
+    const response = await axios.get(`${getApiBaseUrl()}/api/v1/coverage`);
     return response.data;
   } catch (error) {
     console.error("[API_ERROR] fetchMarketCoverage failed:", error);
@@ -327,7 +317,7 @@ export const fetchMarketCoverage = async (): Promise<MarketCoverageSummary | nul
 
 export const fetchDatasets = async (): Promise<DatasetMetadata[] | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/data/datasets`);
+    const response = await axios.get(`${getApiBaseUrl()}/api/v1/data/datasets`);
     if (Array.isArray(response.data)) {
       return response.data;
     }
@@ -340,7 +330,7 @@ export const fetchDatasets = async (): Promise<DatasetMetadata[] | null> => {
 
 export const fetchHistoricalAnalytics = async (origin?: string, dest?: string, days_back: number = 365): Promise<HistoricalAnalytics | null> => {
   try {
-    let url = `${API_BASE_URL}/api/v1/historical/analytics?days_back=${days_back}`;
+    let url = `${getApiBaseUrl()}/api/v1/historical/analytics?days_back=${days_back}`;
     if (origin) url += `&origin=${origin}`;
     if (dest) url += `&destination=${dest}`;
     const response = await axios.get(url);
@@ -353,7 +343,7 @@ export const fetchHistoricalAnalytics = async (origin?: string, dest?: string, d
 
 export const fetchHistoricalComparison = async (origin: string, dest: string, current_fare: number): Promise<HistoricalComparison | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/historical/comparison?origin=${origin}&destination=${dest}&current_fare=${current_fare}`);
+    const response = await axios.get(`${getApiBaseUrl()}/api/v1/historical/comparison?origin=${origin}&destination=${dest}&current_fare=${current_fare}`);
     return response.data;
   } catch (error) {
     console.error("[API_ERROR] fetchHistoricalComparison failed:", error);
@@ -364,7 +354,7 @@ export const fetchHistoricalComparison = async (origin: string, dest: string, cu
 export const validateImportPayload = async (dataset_name: string, source_type: string, records: Record<string, unknown>[]): Promise<ImportValidationReport> => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/api/v1/admin/validate-import`,
+      `${getApiBaseUrl()}/api/v1/admin/validate-import`,
       { dataset_name, source_type, records }
     );
     return response.data;
@@ -384,7 +374,7 @@ export const confirmImportPayload = async (
 ) => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/api/v1/admin/confirm-import`,
+      `${getApiBaseUrl()}/api/v1/admin/confirm-import`,
       { dataset_id, dataset_name, source_type, dataset_version, description, records }
     );
     return response.data;
@@ -396,7 +386,7 @@ export const confirmImportPayload = async (
 
 export const fetchSweepStatus = async (): Promise<SweepState | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/admin/sweep-status`);
+    const response = await axios.get(`${getApiBaseUrl()}/api/v1/admin/sweep-status`);
     return response.data;
   } catch (error) {
     console.error("[API_ERROR] fetchSweepStatus failed:", error);
@@ -407,8 +397,8 @@ export const fetchSweepStatus = async (): Promise<SweepState | null> => {
 export const triggerAdminSweep = async (frequency_minutes?: number) => {
   try {
     const url = frequency_minutes
-      ? `${API_BASE_URL}/api/v1/admin/trigger-sweep?frequency_minutes=${frequency_minutes}`
-      : `${API_BASE_URL}/api/v1/admin/trigger-sweep`;
+      ? `${getApiBaseUrl()}/api/v1/admin/trigger-sweep?frequency_minutes=${frequency_minutes}`
+      : `${getApiBaseUrl()}/api/v1/admin/trigger-sweep`;
     const response = await axios.post(url, {});
     return response.data;
   } catch (err: unknown) {
@@ -419,7 +409,7 @@ export const triggerAdminSweep = async (frequency_minutes?: number) => {
 
 export const triggerLiveSweep = async () => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/v1/cpi/trigger-sweep`);
+    const response = await axios.post(`${getApiBaseUrl()}/api/v1/cpi/trigger-sweep`);
     return response.data;
   } catch {
     return { status: "success", message: "Live sweep completed successfully!" };
@@ -427,7 +417,7 @@ export const triggerLiveSweep = async () => {
 };
 
 export const exportCsv = (mode: DataMode = 'live') => {
-  window.open(`${API_BASE_URL}/api/v1/cpi/export/csv?mode=${mode}`, '_blank');
+  window.open(`${getApiBaseUrl()}/api/v1/cpi/export/csv?mode=${mode}`, '_blank');
 };
 
 export interface NormalizedFlightOffer {
@@ -492,7 +482,7 @@ export const executeLiveFlightSearch = async (
   departure_date?: string,
   save_to_db: boolean = true
 ): Promise<LiveSearchResponse> => {
-  const response = await axios.post(`${API_BASE_URL}/api/v1/scraper/live-search`, {
+  const response = await axios.post(`${getApiBaseUrl()}/api/v1/scraper/live-search`, {
     origin,
     destination,
     horizon_days,
@@ -503,7 +493,7 @@ export const executeLiveFlightSearch = async (
 };
 
 export const fetchSupportedCorridors = async () => {
-  const response = await axios.get(`${API_BASE_URL}/api/v1/scraper/corridors`);
+  const response = await axios.get(`${getApiBaseUrl()}/api/v1/scraper/corridors`);
   return response.data;
 };
 
