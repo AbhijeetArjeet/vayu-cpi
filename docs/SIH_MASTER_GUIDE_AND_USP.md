@@ -226,16 +226,16 @@ Raw web data contains noise. VAYU-CPI processes every quote through:
 - **Methodology & Limitations**: `/methodology`
 
 ### Backend REST API (FastAPI)
-- **Interactive Swagger Documentation**: `https://web-production-3741e.up.railway.app/docs`
-- **System Health Check**: `https://web-production-3741e.up.railway.app/health`
-- **Corridor Catalog**: `https://web-production-3741e.up.railway.app/routes`
-- **Airfare Index (Base 2024 = 100)**: `https://web-production-3741e.up.railway.app/index`
-- **Daily Index Series**: `https://web-production-3741e.up.railway.app/index/daily`
-- **Monthly Index Series**: `https://web-production-3741e.up.railway.app/index/monthly`
-- **30-Day Backtesting Metrics**: `https://web-production-3741e.up.railway.app/backtest`
-- **Carrier Rankings & Market Shares**: `https://web-production-3741e.up.railway.app/carriers`
-- **Observed Fares**: `https://web-production-3741e.up.railway.app/fares?limit=50`
-- **MoSPI CSV Export Stream**: `https://web-production-3741e.up.railway.app/api/v1/cpi/export/csv`
+- **Interactive Swagger Documentation**: `https://web-production-e5a43.up.railway.app/docs`
+- **System Health Check**: `https://web-production-e5a43.up.railway.app/health`
+- **Corridor Catalog**: `https://web-production-e5a43.up.railway.app/routes`
+- **Airfare Index (Base 2024 = 100)**: `https://web-production-e5a43.up.railway.app/index`
+- **Daily Index Series**: `https://web-production-e5a43.up.railway.app/index/daily`
+- **Monthly Index Series**: `https://web-production-e5a43.up.railway.app/index/monthly`
+- **30-Day Backtesting Metrics**: `https://web-production-e5a43.up.railway.app/backtest`
+- **Carrier Rankings & Market Shares**: `https://web-production-e5a43.up.railway.app/carriers`
+- **Observed Fares**: `https://web-production-e5a43.up.railway.app/fares?limit=50`
+- **MoSPI CSV Export Stream**: `https://web-production-e5a43.up.railway.app/api/v1/cpi/export/csv`
 
 ---
 

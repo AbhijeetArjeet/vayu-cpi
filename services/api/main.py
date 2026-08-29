@@ -37,6 +37,8 @@ from services.persistence.db import fetch_all_observations
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("vayu-cpi.api")
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="VAYU-CPI API",
     description=(
@@ -49,39 +51,30 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Allowed production and development origins
+ALLOWED_ORIGINS = [
+    "https://vayu-cpi.vercel.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
-class DynamicCORSMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        origin = request.headers.get("origin")
-        if request.method == "OPTIONS":
-            res = Response(status_code=200)
-            if origin:
-                res.headers["Access-Control-Allow-Origin"] = origin
-                res.headers["Access-Control-Allow-Credentials"] = "true"
-                res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-                res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Admin-Token, Cookie"
-            return res
-
-        response = await call_next(request)
-        if origin:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Admin-Token, Cookie"
-        return response
-
-app.add_middleware(DynamicCORSMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     origin = request.headers.get("origin")
     headers = {}
-    if origin:
+    if origin and (origin in ALLOWED_ORIGINS or origin.endswith(".vercel.app") or "localhost" in origin):
         headers["Access-Control-Allow-Origin"] = origin
         headers["Access-Control-Allow-Credentials"] = "true"
-        headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Admin-Token, Cookie"
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
@@ -105,8 +98,22 @@ def root_endpoint() -> dict:
 
 @app.get("/health", tags=["System Health"])
 def health_check() -> dict:
-    """System health check endpoint."""
-    return {"status": "ok", "service": "vayu-cpi-api", "version": "1.0.0", "sih_theme": "Smart Automation (MoSPI)"}
+    """System health check endpoint with database probe."""
+    db_status = "connected"
+    try:
+        from services.persistence.db import engine, text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = f"unavailable: {str(e)[:80]}"
+
+    return {
+        "status": "ok" if "unavailable" not in db_status else "degraded",
+        "database": db_status,
+        "service": "vayu-cpi-api",
+        "version": "1.0.0",
+        "sih_theme": "Smart Automation (MoSPI)",
+    }
 
 
 @app.get("/routes", tags=["Core Aviation Data"])

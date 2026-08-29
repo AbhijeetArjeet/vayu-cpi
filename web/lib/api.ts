@@ -194,9 +194,12 @@ export const getApiBaseUrl = (): string => {
     }
   }
   if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+    const envUrl = process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+    if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+      return envUrl;
+    }
   }
-  return 'http://localhost:8000';
+  return 'https://web-production-e5a43.up.railway.app';
 };
 
 const API_BASE_URL = getApiBaseUrl();

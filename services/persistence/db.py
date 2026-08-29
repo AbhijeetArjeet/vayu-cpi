@@ -34,7 +34,10 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
 
 try:
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    if DATABASE_URL.startswith("sqlite"):
+        engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False}, pool_pre_ping=True)
+    else:
+        engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     with engine.connect() as conn:
         pass
     logger.info(f"[DB_INIT] Successfully bound database engine: {sanitize_connection_url(DATABASE_URL)}")
@@ -43,7 +46,7 @@ except Exception as _conn_err:
         f"[DB_INIT_FALLBACK] Could not connect to primary DATABASE_URL ({sanitize_connection_url(DATABASE_URL)}): {_conn_err}. "
         "Falling back to local SQLite database (sqlite:///./vayu_test.db)"
     )
-    engine = create_engine("sqlite:///./vayu_test.db")
+    engine = create_engine("sqlite:///./vayu_test.db", connect_args={"check_same_thread": False})
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
