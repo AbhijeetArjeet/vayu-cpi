@@ -199,6 +199,8 @@ def compute_national_composite_cpi(
             since=window_start_dt,
             until=window_end_dt,
         )
+        if len(all_obs) == 0:
+            all_obs = fetch_all_observations(mode=mode, limit=5000)
     
     # Group observations by (origin, destination, horizon_days)
     obs_grouped = {}
