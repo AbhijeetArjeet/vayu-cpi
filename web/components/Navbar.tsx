@@ -97,6 +97,7 @@ export default function Navbar() {
   // Primary visible links in navbar
   const primaryLinks = [
     { name: "Overview", href: "/", icon: Plane },
+    { name: "Weekly Intel", href: "/weekly", icon: BarChart3, badge: "NEW" },
     { name: "Passenger Hub", href: "/passenger", icon: Sparkles, badge: "CITIZEN", glow: true },
     { name: "Explainer", href: "/explainer", icon: HelpCircle, badge: "WHY" },
     { name: "Live Scraper", href: "/scraper", icon: Search },

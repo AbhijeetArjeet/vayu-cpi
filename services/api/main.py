@@ -251,6 +251,9 @@ from services.api.routes_data import router as data_router
 from services.api.routes_admin import router as admin_router
 from services.api.routes_scraper import router as scraper_router
 from services.api.routes_intelligence import router as intelligence_router
+from services.api.routes_weekly import router as weekly_router
+from services.api.routes_ml import router as ml_router
+from services.api.routes_passenger import router as passenger_router
 
 app.include_router(cpi_router)
 app.include_router(dgca_router)
@@ -259,6 +262,9 @@ app.include_router(data_router)
 app.include_router(admin_router)
 app.include_router(scraper_router)
 app.include_router(intelligence_router)
+app.include_router(weekly_router)
+app.include_router(ml_router)
+app.include_router(passenger_router)
 
 # Mount aliases
 @app.get("/api/v1/methodology-validation", response_model=BacktestResult, tags=["Econometric Validation"])

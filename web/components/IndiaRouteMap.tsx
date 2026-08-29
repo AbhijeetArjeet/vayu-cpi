@@ -53,11 +53,19 @@ interface IndiaRouteMapProps {
   routes?: RouteJevonsIndex[];
   alerts?: SurgeAlert[];
   mode?: DataMode;
+  onSelectCorridor?: (corridor: string) => void;
 }
 
-export default function IndiaRouteMap({ routes = [], alerts = [], mode = "live" }: IndiaRouteMapProps) {
+export default function IndiaRouteMap({ routes = [], alerts = [], mode = "live", onSelectCorridor }: IndiaRouteMapProps) {
   const { selectedCorridor, setSelectedCorridor } = useVayuTheme();
   const [hoveredRoute, setHoveredRoute] = useState<string | null>(null);
+
+  const handleRouteClick = (corridor: string) => {
+    setSelectedCorridor(corridor);
+    if (onSelectCorridor) {
+      onSelectCorridor(corridor);
+    }
+  };
   const [hoveredAirport, setHoveredAirport] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -260,7 +268,7 @@ export default function IndiaRouteMap({ routes = [], alerts = [], mode = "live" 
             const pathData = `M ${start.x} ${start.y} Q ${midX} ${midY} ${end.x} ${end.y}`;
 
             return (
-              <g key={route.code} className="cursor-pointer" onClick={() => setSelectedCorridor(route.code)}>
+              <g key={route.code} className="cursor-pointer" onClick={() => handleRouteClick(route.code)}>
                 {/* Glow Outer Line */}
                 <path
                   d={pathData}
@@ -313,7 +321,7 @@ export default function IndiaRouteMap({ routes = [], alerts = [], mode = "live" 
                     const foundRoute = activeRoutes.find(
                       (r) => r.origin === node.id || r.destination === node.id
                     );
-                    if (foundRoute) setSelectedCorridor(foundRoute.code);
+                    if (foundRoute) handleRouteClick(foundRoute.code);
                   }}
                 >
                   {node.hasLive && (

@@ -891,3 +891,280 @@ export const runIndexLabExperiment = async (req: IndexLabRequest): Promise<Index
   }
 };
 
+// ============================================================================
+// WEEKLY AIRFARE INTELLIGENCE TYPES & APIS
+// ============================================================================
+
+export interface WeeklyRouteDetail {
+  corridor: string;
+  origin: string;
+  destination: string;
+  weekly_index: number;
+  prev_week_index: number;
+  wow_change_pct: number;
+  average_fare: number;
+  observation_count: number;
+  status: 'RISING' | 'STABLE' | 'FALLING';
+  dgca_weight: number;
+}
+
+export interface WeeklyCarrierDetail {
+  carrier: string;
+  carrier_code: string;
+  weekly_index: number;
+  prev_week_index: number;
+  wow_change_pct: number;
+  market_share_pct: number;
+}
+
+export interface WeeklyHorizonDetail {
+  horizon_days: number;
+  booking_window: string;
+  weekly_index: number;
+  prev_week_index: number;
+  wow_change_pct: number;
+  weight_alpha: number;
+}
+
+export interface WeeklyNationalSeriesItem {
+  week_label: string;
+  week_start: string;
+  week_end: string;
+  national_index: number;
+  wow_change_pct: number;
+  observation_count: number;
+}
+
+export interface WeeklyAirfareResponse {
+  week_start: string;
+  week_end: string;
+  week_label: string;
+  national_index: number;
+  prev_week_index: number;
+  wow_change_pct: number;
+  four_week_average: number;
+  mom_change_pct: number;
+  cheapest_corridor: string;
+  fastest_rising_route: string;
+  most_volatile_route: string;
+  market_signal: 'STABLE' | 'RISING' | 'HIGH_PRESSURE';
+  routes_rising_pct: number;
+  routes_falling_pct: number;
+  routes_stable_pct: number;
+  total_observations: number;
+  data_freshness: string;
+  data_quality: 'HIGH' | 'MODERATE' | 'LOW';
+  routes: WeeklyRouteDetail[];
+  carriers: WeeklyCarrierDetail[];
+  horizons: WeeklyHorizonDetail[];
+  historical_series: WeeklyNationalSeriesItem[];
+  methodology_notes: string;
+}
+
+export const fetchWeeklyAirfareIntelligence = async (
+  target_date?: string,
+  mode: DataMode = 'live',
+  num_weeks: number = 8
+): Promise<WeeklyAirfareResponse | null> => {
+  try {
+    let url = `${getApiBaseUrl()}/api/v1/index/weekly?mode=${mode}&num_weeks=${num_weeks}`;
+    if (target_date) url += `&target_date=${target_date}`;
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchWeeklyAirfareIntelligence failed:", err);
+    return null;
+  }
+};
+
+// ============================================================================
+// PASSENGER INTELLIGENCE & CALENDAR TYPES & APIS
+// ============================================================================
+
+export interface FareCalendarDay {
+  date: string;
+  day_of_week: string;
+  fare: number;
+  status: 'LOW' | 'NORMAL' | 'HIGH';
+  is_cheapest: boolean;
+  savings_vs_peak: number;
+  booking_horizon_days: number;
+}
+
+export interface FareCalendarResponse {
+  origin: string;
+  destination: string;
+  year: number;
+  month: number;
+  month_name: string;
+  days: FareCalendarDay[];
+  cheapest_date: string;
+  cheapest_fare: number;
+  peak_fare: number;
+  max_savings: number;
+  best_departure_window: string;
+  best_booking_horizon: string;
+  typical_fare_range: string;
+  data_sufficient: boolean;
+  disclaimer: string;
+}
+
+export interface FareScoreResponse {
+  origin: string;
+  destination: string;
+  current_fare: number;
+  typical_fare: number;
+  fare_score: number;
+  rating: string;
+  percentile: number;
+  deviation_pct: number;
+  recommendation_text: string;
+  recommended_action: string;
+}
+
+export interface BookingRecommendationResponse {
+  origin: string;
+  destination: string;
+  departure_date: string;
+  current_fare: number;
+  recommendation: 'BOOK NOW' | 'WAIT & WATCH' | 'CONSIDER ALTERNATIVE DATE';
+  expected_short_term_movement_pct: number;
+  confidence_score: number;
+  primary_reason: string;
+  top_factors: string[];
+  best_horizon_sweetspot: string;
+}
+
+export const fetchFareCalendar = async (
+  origin: string = "DEL",
+  destination: string = "BOM",
+  year?: number,
+  month?: number,
+  preferred_carrier?: string,
+  cabin_class: string = "Economy"
+): Promise<FareCalendarResponse | null> => {
+  try {
+    let url = `${getApiBaseUrl()}/api/v1/passenger/calendar?origin=${origin}&destination=${destination}&cabin_class=${cabin_class}`;
+    if (year) url += `&year=${year}`;
+    if (month) url += `&month=${month}`;
+    if (preferred_carrier) url += `&preferred_carrier=${preferred_carrier}`;
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchFareCalendar failed:", err);
+    return null;
+  }
+};
+
+export const fetchPassengerFareScore = async (
+  origin: string,
+  destination: string,
+  current_fare: number,
+  horizon_days: number = 7
+): Promise<FareScoreResponse | null> => {
+  try {
+    const res = await axios.post(`${getApiBaseUrl()}/api/v1/passenger/fare-score`, {
+      origin,
+      destination,
+      current_fare,
+      horizon_days,
+    });
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchPassengerFareScore failed:", err);
+    return null;
+  }
+};
+
+export const fetchBookingRecommendation = async (
+  origin: string,
+  destination: string,
+  departure_date: string,
+  current_fare: number,
+  horizon_days: number = 7
+): Promise<BookingRecommendationResponse | null> => {
+  try {
+    const res = await axios.post(`${getApiBaseUrl()}/api/v1/passenger/recommendation`, {
+      origin,
+      destination,
+      departure_date,
+      current_fare,
+      horizon_days,
+    });
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchBookingRecommendation failed:", err);
+    return null;
+  }
+};
+
+// ============================================================================
+// MACHINE LEARNING PIPELINE TYPES & APIS
+// ============================================================================
+
+export interface MLPredictionRequest {
+  origin: string;
+  destination: string;
+  departure_date: string;
+  booking_horizon?: number;
+  carrier?: string;
+  current_fare?: number;
+}
+
+export interface MLPredictionResponse {
+  origin: string;
+  destination: string;
+  departure_date: string;
+  booking_horizon: number;
+  predicted_fare: number;
+  expected_change_pct: number;
+  prediction_direction: 'UP' | 'STABLE' | 'DOWN';
+  confidence: number;
+  recommendation: 'BOOK' | 'WAIT' | 'SWITCH_DATE';
+  top_factors: string[];
+  model_name: string;
+  features_used_count: number;
+  evaluation_context: string;
+}
+
+export interface MLModelMetricsResponse {
+  model_name: string;
+  algorithm: string;
+  mae: number;
+  rmse: number;
+  mape: number;
+  r2_score: number;
+  directional_accuracy_pct: number;
+  test_period_start: string;
+  test_period_end: string;
+  train_observations_count: number;
+  test_observations_count: number;
+  feature_importance: Record<string, number>;
+  training_timestamp: string;
+  is_trained: boolean;
+  status: string;
+}
+
+export const fetchMLMetrics = async (): Promise<MLModelMetricsResponse | null> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/api/v1/ml/metrics`);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchMLMetrics failed:", err);
+    return null;
+  }
+};
+
+export const fetchMLPrediction = async (
+  payload: MLPredictionRequest
+): Promise<MLPredictionResponse | null> => {
+  try {
+    const res = await axios.post(`${getApiBaseUrl()}/api/v1/ml/predict`, payload);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchMLPrediction failed:", err);
+    return null;
+  }
+};
+
+

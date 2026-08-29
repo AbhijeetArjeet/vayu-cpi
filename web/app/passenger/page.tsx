@@ -1,959 +1,696 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
-  Plane,
-  Search,
-  CheckCircle2,
-  AlertTriangle,
-  Flame,
-  ArrowRight,
+  Calendar as CalendarIcon,
   TrendingDown,
-  Info,
-  Calendar,
+  TrendingUp,
+  Clock,
   Sparkles,
   ShieldCheck,
-  Zap,
+  Plane,
+  AlertCircle,
   HelpCircle,
-  Clock,
-  ArrowUpRight,
-  ShoppingBag,
-  ExternalLink,
+  Bell,
+  Bookmark,
+  BookmarkCheck,
+  ChevronLeft,
   ChevronRight,
-  DollarSign,
-  Compass,
-  Filter,
+  Info,
   Layers,
-  Award,
-  TrendingUp,
-  RefreshCw,
+  ArrowRight,
   Sun,
   Sunrise,
-  Moon,
-  ChevronDown,
-} from "lucide-react";
+  Sunset,
+  CheckCircle2,
+  X,
+} from 'lucide-react';
 import {
-  calculateFairFare,
-  executeLiveFlightSearch,
-  FairFareResponse,
-  LiveSearchResponse,
-  NormalizedFlightOffer,
-} from "../../lib/api";
+  fetchFareCalendar,
+  fetchPassengerFareScore,
+  fetchBookingRecommendation,
+  fetchMLPrediction,
+  FareCalendarResponse,
+  FareCalendarDay,
+  FareScoreResponse,
+  BookingRecommendationResponse,
+  MLPredictionResponse,
+} from '@/lib/api';
 
-const POPULAR_AIRPORTS = [
-  { code: "DEL", city: "New Delhi", airport: "Indira Gandhi Int'l (IGI)", tier: "Trunk" },
-  { code: "BOM", city: "Mumbai", airport: "Chhatrapati Shivaji (CSMIA)", tier: "Trunk" },
-  { code: "BLR", city: "Bengaluru", airport: "Kempegowda Int'l (KIA)", tier: "Metro" },
-  { code: "GOI", city: "Goa", airport: "Dabolim / Manohar (Mopa)", tier: "Leisure" },
-  { code: "CCU", city: "Kolkata", airport: "Netaji Subhash Chandra", tier: "Metro" },
-  { code: "HYD", city: "Hyderabad", airport: "Rajiv Gandhi Int'l (RGIA)", tier: "Metro" },
-  { code: "MAA", city: "Chennai", airport: "Chennai Int'l (MAA)", tier: "Metro" },
-  { code: "PAT", city: "Patna", airport: "Jay Prakash Narayan", tier: "Regional" },
-  { code: "IXC", city: "Chandigarh", airport: "Shaheed Bhagat Singh", tier: "Regional" },
-  { code: "JAI", city: "Jaipur", airport: "Jaipur Int'l", tier: "Regional" },
+const CORRIDORS = [
+  { orig: 'DEL', dest: 'BOM', label: 'Delhi ➔ Mumbai (Trunk)' },
+  { orig: 'BOM', dest: 'DEL', label: 'Mumbai ➔ Delhi' },
+  { orig: 'DEL', dest: 'BLR', label: 'Delhi ➔ Bengaluru' },
+  { orig: 'BLR', dest: 'DEL', label: 'Bengaluru ➔ Delhi' },
+  { orig: 'BOM', dest: 'GOI', label: 'Mumbai ➔ Goa (Leisure)' },
+  { orig: 'DEL', dest: 'CCU', label: 'Delhi ➔ Kolkata' },
+  { orig: 'DEL', dest: 'HYD', label: 'Delhi ➔ Hyderabad' },
+  { orig: 'BLR', dest: 'BOM', label: 'Bengaluru ➔ Mumbai' },
+  { orig: 'DEL', dest: 'PAT', label: 'Delhi ➔ Patna' },
 ];
 
-const HORIZONS_DATA = [
-  {
-    days: 1,
-    title: "TOMORROW",
-    subtitle: "T+1 Spot / Emergency",
-    icon: "⚡",
-    multiplier: 1.35,
-    risk: "EXPENSIVE",
-    riskColor: "text-rose-400 bg-rose-500/10 border-rose-500/30",
-    badge: "🔴 TATKAL SURGE",
-    desc: "Peak last-minute dynamic yield pricing.",
-  },
-  {
-    days: 7,
-    title: "1 WEEK",
-    subtitle: "T+7 Weekly",
-    icon: "📅",
-    multiplier: 1.0,
-    risk: "NORMAL",
-    riskColor: "text-amber-400 bg-amber-500/10 border-amber-500/30",
-    badge: "🟡 BENCHMARK",
-    desc: "Standard baseline business/leisure pricing.",
-  },
-  {
-    days: 15,
-    title: "2 WEEKS",
-    subtitle: "T+15 Fortnight",
-    icon: "✈️",
-    multiplier: 0.86,
-    risk: "BEST VALUE",
-    riskColor: "text-cyan-400 bg-cyan-500/10 border-cyan-500/30",
-    badge: "🟢 SWEET SPOT",
-    desc: "Optimal balance of seat choice & discounts.",
-  },
-  {
-    days: 30,
-    title: "1 MONTH",
-    subtitle: "T+30 Advance",
-    icon: "🏖️",
-    multiplier: 0.76,
-    risk: "MAX SAVINGS",
-    riskColor: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
-    badge: "💎 CHEAPEST TIER",
-    desc: "Lowest early-bird promotional inventory.",
-  },
-];
-
-export default function PassengerPortalPage() {
-  const [origin, setOrigin] = useState("DEL");
-  const [destination, setDestination] = useState("BOM");
-  const [horizonDays, setHorizonDays] = useState(15);
-  const [enteredFare, setEnteredFare] = useState<string>("5200");
-  const [fairFareResult, setFairFareResult] = useState<FairFareResponse | null>(null);
-  const [liveOffers, setLiveOffers] = useState<NormalizedFlightOffer[]>([]);
-  const [isSearchingLive, setIsSearchingLive] = useState(false);
-  const [searchStatus, setSearchStatus] = useState<string>("");
-  const [isSwapping, setIsSwapping] = useState(false);
-  const [activePortalView, setActivePortalView] = useState<"all" | "direct" | "ota">("all");
+export default function PassengerIntelligencePage() {
+  const [origin, setOrigin] = useState<string>('DEL');
+  const [destination, setDestination] = useState<string>('BOM');
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   
-  // Compact Live Flights Controls
-  const [flightFilterTime, setFlightFilterTime] = useState<"ALL" | "MORNING" | "AFTERNOON" | "EVENING">("ALL");
-  const [flightFilterCarrier, setFlightFilterCarrier] = useState<string>("ALL");
-  const [visibleFlightsLimit, setVisibleFlightsLimit] = useState<number>(6);
+  // Intelligence states
+  const [calendarData, setCalendarData] = useState<FareCalendarResponse | null>(null);
+  const [selectedDay, setSelectedDay] = useState<FareCalendarDay | null>(null);
+  const [fareScore, setFareScore] = useState<FareScoreResponse | null>(null);
+  const [recommendation, setRecommendation] = useState<BookingRecommendationResponse | null>(null);
+  const [mlOutlook, setMlOutlook] = useState<MLPredictionResponse | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [showWhyModal, setShowWhyModal] = useState<boolean>(false);
 
-  // Load fair fare calculation from backend
-  const loadFairFare = async (userFare?: number) => {
+  // Local storage state for Alerts & Saved Routes
+  const [savedRoutes, setSavedRoutes] = useState<string[]>([]);
+  const [alertTargetFare, setAlertTargetFare] = useState<string>('5000');
+  const [alertSet, setAlertSet] = useState<boolean>(false);
+
+  // Load Saved Routes from localStorage on mount
+  useEffect(() => {
     try {
-      const res = await calculateFairFare({
-        origin,
-        destination,
-        horizon_days: horizonDays,
-        current_fare: userFare,
-      });
-      if (res) setFairFareResult(res);
-    } catch (e) {
-      console.error("Fair fare error:", e);
+      const saved = localStorage.getItem('vayu_saved_routes');
+      if (saved) setSavedRoutes(JSON.parse(saved));
+    } catch {
+      // safe fallback
+    }
+  }, []);
+
+  const toggleSaveRoute = (corridor: string) => {
+    let updated = [...savedRoutes];
+    if (updated.includes(corridor)) {
+      updated = updated.filter((c) => c !== corridor);
+    } else {
+      updated.push(corridor);
+    }
+    setSavedRoutes(updated);
+    try {
+      localStorage.setItem('vayu_saved_routes', JSON.stringify(updated));
+    } catch {
+      // ignore
     }
   };
 
-  // Search live bookable flights
-  const handleLiveSearch = async () => {
-    setIsSearchingLive(true);
-    setSearchStatus("Querying live inventory from airline feeds...");
+  // Fetch all passenger intelligence when corridor or date changes
+  const loadPassengerData = async () => {
+    setLoading(true);
     try {
-      const res: LiveSearchResponse = await executeLiveFlightSearch(origin, destination, horizonDays);
-      if (res && res.offers && res.offers.length > 0) {
-        setLiveOffers(res.offers);
-        setSearchStatus(`Found ${res.offers.length} live flight quotes!`);
-        if (res.summary?.lowest_fare_inr) {
-          setEnteredFare(String(res.summary.lowest_fare_inr));
-          loadFairFare(res.summary.lowest_fare_inr);
-        }
-      } else {
-        setSearchStatus("Live market quotes synchronized with baseline engine.");
+      const calRes = await fetchFareCalendar(origin, destination, selectedYear, selectedMonth);
+      setCalendarData(calRes);
+
+      if (calRes && calRes.days.length > 0) {
+        // Pick mid-month or first available day as default
+        const defDay = calRes.days.find((d) => d.is_cheapest) || calRes.days[14] || calRes.days[0];
+        setSelectedDay(defDay);
+
+        const [scoreRes, recRes, mlRes] = await Promise.all([
+          fetchPassengerFareScore(origin, destination, defDay.fare, defDay.booking_horizon_days),
+          fetchBookingRecommendation(origin, destination, defDay.date, defDay.fare, defDay.booking_horizon_days),
+          fetchMLPrediction({
+            origin,
+            destination,
+            departure_date: defDay.date,
+            booking_horizon: defDay.booking_horizon_days,
+            current_fare: defDay.fare,
+          }),
+        ]);
+
+        setFareScore(scoreRes);
+        setRecommendation(recRes);
+        setMlOutlook(mlRes);
       }
-    } catch (e) {
-      console.error("Live flight search error:", e);
-      setSearchStatus("Synchronized with econometric reference model.");
+    } catch (err) {
+      console.error('Failed to load passenger data:', err);
     } finally {
-      setIsSearchingLive(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadFairFare(parseFloat(enteredFare) || undefined);
-  }, [origin, destination, horizonDays]);
+    loadPassengerData();
+  }, [origin, destination, selectedMonth, selectedYear]);
 
-  useEffect(() => {
-    handleLiveSearch();
-  }, [origin, destination]);
-
-  const handleSwapAirports = () => {
-    setIsSwapping(true);
-    setTimeout(() => {
-      const temp = origin;
-      setOrigin(destination);
-      setDestination(temp);
-      setIsSwapping(false);
-    }, 200);
+  // When user clicks a different date on the calendar
+  const handleSelectDay = async (day: FareCalendarDay) => {
+    setSelectedDay(day);
+    try {
+      const [scoreRes, recRes, mlRes] = await Promise.all([
+        fetchPassengerFareScore(origin, destination, day.fare, day.booking_horizon_days),
+        fetchBookingRecommendation(origin, destination, day.date, day.fare, day.booking_horizon_days),
+        fetchMLPrediction({
+          origin,
+          destination,
+          departure_date: day.date,
+          booking_horizon: day.booking_horizon_days,
+          current_fare: day.fare,
+        }),
+      ]);
+      setFareScore(scoreRes);
+      setRecommendation(recRes);
+      setMlOutlook(mlRes);
+    } catch (err) {
+      console.error('Failed updating date intelligence:', err);
+    }
   };
 
-  const originInfo = POPULAR_AIRPORTS.find((a) => a.code === origin) || POPULAR_AIRPORTS[0];
-  const destInfo = POPULAR_AIRPORTS.find((a) => a.code === destination) || POPULAR_AIRPORTS[1];
-
-  const currentMedian = fairFareResult?.expected_fare || 5400;
-  const userFareNum = parseFloat(enteredFare) || currentMedian;
-  const diffPct = fairFareResult?.difference_pct ?? Math.round(((userFareNum - currentMedian) / currentMedian) * 100);
-
-  const clampedDiff = Math.max(-40, Math.min(60, diffPct));
-  const gaugeDeg = Math.round(90 + (clampedDiff / 50) * 70);
-
-  const spotPrice = Math.round(currentMedian * 1.35);
-  const advancePrice = Math.round(currentMedian * 0.76);
-  const maxSavings = Math.max(0, spotPrice - advancePrice);
-
-  // Filter flights by time of day and carrier
-  const filteredFlights = liveOffers.filter((f) => {
-    // Carrier filter
-    if (flightFilterCarrier !== "ALL" && f.airline && !f.airline.toLowerCase().includes(flightFilterCarrier.toLowerCase())) {
-      return false;
-    }
-    // Time filter
-    if (flightFilterTime !== "ALL") {
-      const hour = parseInt((f.departure_time || "10:00").split(":")[0], 10);
-      if (flightFilterTime === "MORNING" && (hour < 5 || hour >= 12)) return false;
-      if (flightFilterTime === "AFTERNOON" && (hour < 12 || hour >= 18)) return false;
-      if (flightFilterTime === "EVENING" && hour < 18) return false;
-    }
-    return true;
-  });
-
-  const displayedFlights = filteredFlights.slice(0, visibleFlightsLimit);
+  const currentCorridorStr = `${origin}-${destination}`;
+  const isCurrentSaved = savedRoutes.includes(currentCorridorStr);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans relative overflow-hidden selection:bg-cyan-500 selection:text-black">
-      {/* 1. Futuristic Aviation Atmospheric Background */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-blue-600/15 via-cyan-500/10 to-transparent blur-3xl rounded-full" />
-        <div className="absolute top-96 -left-48 w-96 h-96 bg-indigo-600/10 blur-3xl rounded-full" />
-        <div className="absolute top-[800px] -right-48 w-96 h-96 bg-cyan-600/10 blur-3xl rounded-full" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b10_1px,transparent_1px),linear-gradient(to_bottom,#1e293b10_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10 relative z-10">
-        
-        {/* ========================================================================= */}
-        {/* 1. HERO SECTION: Aviation Radar Control Center */}
-        {/* ========================================================================= */}
-        <section className="relative pt-2 pb-6 space-y-6 text-center lg:text-left">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-            <div className="space-y-4 max-w-3xl">
-              <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full text-xs font-mono font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.15)]">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                <span className="w-2 h-2 rounded-full bg-cyan-400 -ml-4" />
-                <span>LIVE AIRFARE INTELLIGENCE</span>
-                <span className="text-slate-500">•</span>
-                <span className="text-slate-400">Real-Time Indian Corridors</span>
-              </div>
-
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
-                Know When & Where to Buy Your{" "}
-                <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-300 bg-clip-text text-transparent underline decoration-cyan-500/30 decoration-wavy">
-                  Flight Tickets
-                </span>
-              </h1>
-
-              <p className="text-sm sm:text-base text-slate-400 font-normal max-w-2xl leading-relaxed">
-                VAYU constantly crawls live airline inventories across India to verify whether you are paying a fair price, compare portal markups, and identify the exact sweet-spot booking window.
-              </p>
-
-              <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 font-mono text-xs text-slate-300">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                  <span className="text-cyan-400 font-bold">⚡ Route:</span>
-                  <span className="text-white">{origin} ➔ {destination}</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                  <TrendingDown className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>Max Advance Savings: <strong className="text-emerald-400">Save up to 35%</strong></span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                  <ShieldCheck className="h-3.5 w-3.5 text-blue-400" />
-                  <span>Zero-Fee Booking: <strong className="text-white">Airline Direct</strong></span>
-                </div>
-              </div>
-            </div>
-
-            {/* Radar Telemetry Card */}
-            <div className="hidden lg:flex flex-col items-center justify-center p-6 rounded-3xl bg-gradient-to-b from-slate-900/80 to-slate-950/90 border border-cyan-500/20 backdrop-blur-xl shadow-2xl relative w-80 shrink-0">
-              <div className="w-full flex items-center justify-between text-[11px] font-mono text-cyan-400 pb-3 border-b border-slate-800">
-                <span>RADAR TELEMETRY</span>
-                <span className="animate-pulse font-bold">ONLINE ●</span>
-              </div>
-              <div className="py-6 flex flex-col items-center space-y-2">
-                <div className="relative">
-                  <div className="w-24 h-24 rounded-full border border-cyan-500/30 flex items-center justify-center animate-[spin_12s_linear_infinite]">
-                    <div className="w-16 h-16 rounded-full border border-dashed border-cyan-400/40 flex items-center justify-center" />
-                  </div>
-                  <Plane className="h-7 w-7 text-cyan-400 absolute inset-0 m-auto" />
-                </div>
-                <div className="text-center">
-                  <span className="text-xs font-mono font-bold text-slate-200 block mt-1">
-                    {origin} ➔ {destination}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    Median Rate: ₹{currentMedian.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-              <div className="w-full pt-3 border-t border-slate-800 text-[10px] font-mono text-slate-500 flex justify-between">
-                <span>MoSPI Jevons CPI</span>
-                <span className="text-emerald-400 font-bold">189.51</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-
-        {/* ========================================================================= */}
-        {/* 2. INTERACTIVE ROUTE SELECTOR & FAIR FARE RADAR */}
-        {/* ========================================================================= */}
-        <section className="p-6 sm:p-8 rounded-3xl bg-slate-900/70 border border-cyan-500/20 backdrop-blur-xl shadow-2xl space-y-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20">
+      {/* Top Header */}
+      <div className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-16 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                <Compass className="h-6 w-6 text-cyan-400" />
-                <span>Flight Route & Price Evaluator</span>
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-400">
-                Select your corridor, enter the fare you found, and get an instant statistical verdict.
-              </p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  VAYU Passenger Intelligence Hub
+                </span>
+                <span className="text-xs text-slate-400">MoSPI Econometric Yield Engine</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+                {origin} ➔ {destination} Fare Intelligence
+              </h1>
             </div>
 
-            <button
-              onClick={handleLiveSearch}
-              disabled={isSearchingLive}
-              className="px-4 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-mono font-bold flex items-center gap-2 transition-all self-start lg:self-auto"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isSearchingLive ? "animate-spin" : ""}`} />
-              <span>{isSearchingLive ? "Scanning Airline Feeds..." : "Refresh Live Quotes"}</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-            {/* Origin Airport */}
-            <div className="lg:col-span-4 p-4 rounded-2xl bg-slate-950/80 border border-slate-800 focus-within:border-cyan-500/60 transition-all space-y-1">
-              <span className="text-[10px] font-mono uppercase text-slate-500 block font-bold">
-                🛫 DEPARTURE AIRPORT
-              </span>
+            {/* Corridor Selector */}
+            <div className="flex flex-wrap items-center gap-2">
               <select
-                value={origin}
-                onChange={(e) => setOrigin(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black font-mono text-white focus:outline-none cursor-pointer"
+                value={`${origin}-${destination}`}
+                onChange={(e) => {
+                  const [o, d] = e.target.value.split('-');
+                  setOrigin(o);
+                  setDestination(d);
+                }}
+                className="bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-cyan-500 outline-none"
               >
-                {POPULAR_AIRPORTS.map((a) => (
-                  <option key={a.code} value={a.code} disabled={a.code === destination} className="bg-slate-900 text-sm font-sans">
-                    {a.code} — {a.city} ({a.airport})
+                {CORRIDORS.map((c) => (
+                  <option key={`${c.orig}-${c.dest}`} value={`${c.orig}-${c.dest}`}>
+                    {c.label}
                   </option>
                 ))}
               </select>
-              <span className="text-xs text-slate-400 block truncate font-medium">
-                {originInfo.city} • {originInfo.airport}
-              </span>
-            </div>
 
-            {/* Swap Button */}
-            <div className="lg:col-span-1 flex justify-center">
               <button
-                type="button"
-                onClick={handleSwapAirports}
-                className={`p-3.5 rounded-2xl bg-slate-800/80 hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-400 border border-slate-700 hover:border-cyan-500/40 transition-all hover:scale-110 shadow-lg ${
-                  isSwapping ? "rotate-180" : ""
+                onClick={() => toggleSaveRoute(currentCorridorStr)}
+                className={`p-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition ${
+                  isCurrentSaved
+                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
                 }`}
-                title="Swap Origin and Destination"
+                title={isCurrentSaved ? 'Route Saved' : 'Save Route'}
               >
-                <RefreshCw className="h-5 w-5" />
+                {isCurrentSaved ? <BookmarkCheck className="w-4 h-4 text-cyan-400" /> : <Bookmark className="w-4 h-4" />}
+                <span className="hidden sm:inline">{isCurrentSaved ? 'Saved' : 'Save Route'}</span>
               </button>
             </div>
-
-            {/* Destination Airport */}
-            <div className="lg:col-span-4 p-4 rounded-2xl bg-slate-950/80 border border-slate-800 focus-within:border-cyan-500/60 transition-all space-y-1">
-              <span className="text-[10px] font-mono uppercase text-slate-500 block font-bold">
-                🛬 ARRIVAL AIRPORT
-              </span>
-              <select
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="w-full bg-transparent text-2xl font-black font-mono text-white focus:outline-none cursor-pointer"
-              >
-                {POPULAR_AIRPORTS.map((a) => (
-                  <option key={a.code} value={a.code} disabled={a.code === origin} className="bg-slate-900 text-sm font-sans">
-                    {a.code} — {a.city} ({a.airport})
-                  </option>
-                ))}
-              </select>
-              <span className="text-xs text-slate-400 block truncate font-medium">
-                {destInfo.city} • {destInfo.airport}
-              </span>
-            </div>
-
-            {/* Price Input */}
-            <div className="lg:col-span-3 p-4 rounded-2xl bg-slate-950/80 border border-slate-800 focus-within:border-cyan-500/60 transition-all space-y-1">
-              <span className="text-[10px] font-mono uppercase text-slate-500 block font-bold">
-                ₹ TICKET PRICE FOUND
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-black text-cyan-400 font-mono">₹</span>
-                <input
-                  type="number"
-                  value={enteredFare}
-                  onChange={(e) => {
-                    setEnteredFare(e.target.value);
-                    loadFairFare(parseFloat(e.target.value) || undefined);
-                  }}
-                  placeholder="5200"
-                  className="w-full bg-transparent text-2xl font-black font-mono text-white focus:outline-none"
-                />
-              </div>
-              <span className="text-[10px] text-slate-500 block font-mono">
-                Compare vs {origin}➔{destination} benchmarks
-              </span>
-            </div>
           </div>
+        </div>
+      </div>
 
-          {/* Horizon Selection Buttons */}
-          <div className="space-y-2">
-            <span className="text-xs font-mono text-slate-400 font-bold uppercase tracking-wider block">
-              SELECT DEPARTURE HORIZON
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {HORIZONS_DATA.map((h) => {
-                const isSelected = horizonDays === h.days;
-                return (
-                  <button
-                    key={h.days}
-                    type="button"
-                    onClick={() => setHorizonDays(h.days)}
-                    className={`p-3.5 rounded-2xl border text-left transition-all ${
-                      isSelected
-                        ? "bg-gradient-to-b from-cyan-950/60 to-slate-900 border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)] text-white"
-                        : "bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg">{h.icon}</span>
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${h.riskColor}`}>
-                        {h.risk}
-                      </span>
-                    </div>
-                    <h4 className="font-bold text-sm text-white mt-1">{h.title}</h4>
-                    <p className="text-[11px] text-slate-400">{h.subtitle}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Dynamic Speedometer & Assessment */}
-          {fairFareResult && (
-            <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-slate-800 shadow-2xl relative overflow-hidden space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                
-                {/* SVG Speedometer */}
-                <div className="lg:col-span-4 flex flex-col items-center justify-center p-2">
-                  <div className="relative w-48 h-28 flex items-end justify-center overflow-hidden">
-                    <svg className="w-48 h-48 -mb-24" viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" strokeWidth="8" strokeDasharray="125.6 125.6" transform="rotate(-180 50 50)" />
-                      <circle cx="50" cy="50" r="40" fill="none" stroke="#10b981" strokeWidth="8" strokeDasharray="35 125.6" strokeDashoffset="0" transform="rotate(-180 50 50)" />
-                      <circle cx="50" cy="50" r="40" fill="none" stroke="#3b82f6" strokeWidth="8" strokeDasharray="45 125.6" strokeDashoffset="-35" transform="rotate(-180 50 50)" />
-                      <circle cx="50" cy="50" r="40" fill="none" stroke="#f43f5e" strokeWidth="8" strokeDasharray="45 125.6" strokeDashoffset="-80" transform="rotate(-180 50 50)" />
-                    </svg>
-                    <div
-                      className="absolute bottom-0 w-1 h-20 bg-gradient-to-t from-cyan-400 to-white rounded-full origin-bottom transition-transform duration-700 ease-out shadow-[0_0_10px_rgba(6,182,212,0.8)]"
-                      style={{ transform: `rotate(${gaugeDeg - 90}deg)` }}
-                    />
-                    <div className="absolute bottom-0 w-4 h-4 rounded-full bg-cyan-400 border-2 border-slate-900 shadow-md" />
-                  </div>
-
-                  <div className="flex items-center justify-between w-full text-[10px] font-mono text-slate-500 px-4 mt-2">
-                    <span className="text-emerald-400">GREAT DEAL</span>
-                    <span className="text-blue-400">FAIR</span>
-                    <span className="text-rose-400">SURGE</span>
-                  </div>
-                </div>
-
-                {/* Verdict Text */}
-                <div className="lg:col-span-8 space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider border ${
-                        diffPct <= -12
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                          : diffPct <= 15
-                          ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
-                          : diffPct <= 35
-                          ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                          : "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                      }`}
-                    >
-                      {diffPct <= -12
-                        ? "🟢 GREAT PRICE (BUY NOW)"
-                        : diffPct <= 15
-                        ? "🔵 FAIR MARKET VALUE"
-                        : diffPct <= 35
-                        ? "🟡 MODERATELY ELEVATED"
-                        : "🔴 HIGH SURGE / OVERPRICED"}
-                    </span>
-                    <span className="text-xs font-mono text-slate-400">
-                      Evaluated on {origin}➔{destination} ({HORIZONS_DATA.find((h) => h.days === horizonDays)?.title})
-                    </span>
-                  </div>
-
-                  <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                    {diffPct <= -12 && `₹${userFareNum.toLocaleString()} is ${Math.abs(diffPct)}% below the expected market average!`}
-                    {diffPct > -12 && diffPct <= 15 && `₹${userFareNum.toLocaleString()} is a standard, fair market price.`}
-                    {diffPct > 15 && diffPct <= 35 && `₹${userFareNum.toLocaleString()} carries a +${diffPct}% weekend/demand markup.`}
-                    {diffPct > 35 && `Warning: ₹${userFareNum.toLocaleString()} is surging +${diffPct}% above median.`}
-                  </h3>
-
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
-                    {diffPct <= -12 &&
-                      "This ticket is in the lowest 20th percentile recorded for this corridor. Fares rarely drop lower than this—we recommend booking immediately before discount seats sell out."}
-                    {diffPct > -12 && diffPct <= 15 &&
-                      "This fare reflects standard operating yield without artificial price gouging. You are paying an equitable price within normal statistical bounds."}
-                    {diffPct > 15 && diffPct <= 35 &&
-                      "Airlines have begun tightening seat inventory. If your schedule is flexible, shifting your travel by 1–2 days or booking for Tuesday/Wednesday can save up to ₹850."}
-                    {diffPct > 35 &&
-                      "You are paying peak Tatkal dynamic surge prices. Unless travel is urgent, booking 15 days in advance will save you approximately ₹1,500–₹2,800 on this corridor."}
-                  </p>
-
-                  <div className="pt-2 grid grid-cols-3 gap-3 font-mono text-xs">
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-500 block uppercase">Cheap Deal (P25)</span>
-                      <span className="text-base font-bold text-emerald-400">
-                        ₹{fairFareResult.distribution.p25.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-500 block uppercase">Expected Median</span>
-                      <span className="text-base font-bold text-cyan-400">
-                        ₹{fairFareResult.expected_fare.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-500 block uppercase">Surge Tier (P90)</span>
-                      <span className="text-base font-bold text-rose-400">
-                        ₹{fairFareResult.distribution.p90.toLocaleString()}+
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-
-        {/* ========================================================================= */}
-        {/* 3. 45-DAY SAVINGS TIMELINE JOURNEY */}
-        {/* ========================================================================= */}
-        <section className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
+        {/* SMART DATE RECOMMENDATIONS STRIP */}
+        <div className="bg-gradient-to-r from-cyan-950/40 via-slate-900 to-indigo-950/40 border border-cyan-500/30 rounded-2xl p-6 relative overflow-hidden shadow-xl backdrop-blur-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div>
-              <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                <Clock className="h-6 w-6 text-cyan-400" />
-                <span>When to Book: 45-Day Savings Trajectory</span>
+              <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-cyan-400">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                Best Days to Fly & Savings Recommendation
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
+                Cheapest Date: <span className="text-emerald-400">{calendarData?.cheapest_date || 'Tuesday'}</span> at{' '}
+                <span className="text-emerald-400 font-extrabold">₹{calendarData?.cheapest_fare.toLocaleString()}</span>
               </h2>
-              <p className="text-xs sm:text-sm text-slate-400">
-                How flight prices drop as you book further in advance on {origin} ➔ {destination}.
+              <p className="text-xs text-slate-300 mt-1 max-w-2xl">
+                Booking on this date saves approximately <strong className="text-emerald-400">₹{calendarData?.max_savings.toLocaleString()}</strong> compared to peak weekend fares on this corridor.
               </p>
             </div>
 
-            <div className="px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold flex items-center gap-2 self-start sm:self-auto">
-              <Sparkles className="h-4 w-4" />
-              <span>Potential Advance Savings: ₹{maxSavings.toLocaleString()}</span>
+            {/* Quick Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Optimal Window</div>
+                <div className="text-xs font-extrabold text-cyan-300 mt-0.5">{calendarData?.best_departure_window || 'Tue & Wed Midweek'}</div>
+              </div>
+              <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Sweet-Spot Horizon</div>
+                <div className="text-xs font-extrabold text-emerald-300 mt-0.5">{calendarData?.best_booking_horizon || 'T+14 to T+21 Days'}</div>
+              </div>
+              <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 col-span-2 sm:col-span-1">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Typical Range</div>
+                <div className="text-xs font-extrabold text-slate-200 mt-0.5">{calendarData?.typical_fare_range || '₹4,200 – ₹6,800'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* DECISION LAYER: SHOULD I BOOK NOW + FARE SCORE */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Card 1: SHOULD I BOOK NOW? */}
+          <div className="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-cyan-400" />
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Decision Engine</span>
+              </div>
+              <span className="text-xs text-slate-400">
+                Departure: <strong className="text-slate-200">{selectedDay?.date || 'Selected Date'}</strong>
+              </span>
+            </div>
+
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-950/80 border border-slate-800">
+              <div>
+                <div className="text-xs text-slate-400 uppercase font-semibold">Recommended Passenger Action</div>
+                <div className="text-2xl sm:text-3xl font-black mt-1 flex items-center gap-3">
+                  <span
+                    className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-lg sm:text-xl font-extrabold tracking-wide ${
+                      recommendation?.recommendation === 'BOOK NOW'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : recommendation?.recommendation === 'WAIT & WATCH'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                    }`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${
+                      recommendation?.recommendation === 'BOOK NOW' ? 'bg-emerald-400' : recommendation?.recommendation === 'WAIT & WATCH' ? 'bg-amber-400' : 'bg-rose-400'
+                    }`} />
+                    {recommendation?.recommendation || 'BOOK NOW'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-left sm:text-right border-t sm:border-t-0 sm:border-l border-slate-800 pt-3 sm:pt-0 sm:pl-6">
+                <div className="text-xs text-slate-400">Quoted Selected Fare</div>
+                <div className="text-2xl font-black text-cyan-400">
+                  ₹{selectedDay ? selectedDay.fare.toLocaleString() : '5,820'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  Expected Trend: <span className="font-bold text-slate-200">{recommendation?.expected_short_term_movement_pct}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Reason text & "WHY?" Button */}
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+                {recommendation?.primary_reason || 'Loading corridor yield assessment...'}
+              </p>
+              <button
+                onClick={() => setShowWhyModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-xs font-bold border border-cyan-500/30 transition shrink-0 self-start sm:self-auto"
+              >
+                <HelpCircle className="w-4 h-4" />
+                Why? (Model Factors)
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {HORIZONS_DATA.map((step) => {
-              const estPrice = Math.round(currentMedian * step.multiplier);
-              const savingsFromSpot = Math.max(0, spotPrice - estPrice);
-              const isSweetSpot = step.days === 15;
+          {/* Card 2: FARE SCORE (0-100) */}
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Passenger Fare Score</span>
+                <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                  0–100 Scale
+                </span>
+              </div>
 
+              {/* Big Score Dial Display */}
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-4xl sm:text-5xl font-black text-white">
+                  {fareScore?.fare_score || 64}
+                </span>
+                <span className="text-lg font-bold text-slate-500">/ 100</span>
+                <span className={`ml-auto px-2.5 py-1 rounded-md text-xs font-extrabold uppercase tracking-wider ${
+                  (fareScore?.fare_score || 64) <= 30
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : (fareScore?.fare_score || 64) <= 50
+                    ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                    : (fareScore?.fare_score || 64) <= 70
+                    ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20'
+                    : (fareScore?.fare_score || 64) <= 85
+                    ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                    : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                }`}>
+                  {fareScore?.rating || 'Normal'}
+                </span>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-800 h-2 rounded-full mt-3 overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${
+                    (fareScore?.fare_score || 64) <= 50
+                      ? 'bg-emerald-400'
+                      : (fareScore?.fare_score || 64) <= 70
+                      ? 'bg-cyan-400'
+                      : 'bg-rose-400'
+                  }`}
+                  style={{ width: `${fareScore?.fare_score || 64}%` }}
+                />
+              </div>
+
+              <div className="text-xs text-slate-300 mt-4 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Typical Baseline Fare:</span>
+                  <span className="font-bold text-slate-200">₹{fareScore?.typical_fare.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Price Percentile:</span>
+                  <span className="font-bold text-slate-200">{fareScore?.percentile}th percentile</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Deviation from Normal:</span>
+                  <span className={`font-bold ${((fareScore?.deviation_pct || 0) >= 0) ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    {(fareScore?.deviation_pct || 0) > 0 ? `+${fareScore?.deviation_pct}%` : `${fareScore?.deviation_pct}%`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-400 italic mt-4 pt-3 border-t border-slate-800">
+              {fareScore?.recommendation_text || 'Standard market price based on historical corridor distributions.'}
+            </p>
+          </div>
+        </div>
+
+        {/* FARE CALENDAR HEATMAP */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-cyan-400" />
+                Fare Calendar Heatmap ({calendarData?.month_name || 'September'} {selectedYear})
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Click any date to see exact fare intelligence, booking recommendations, and price scores.
+              </p>
+            </div>
+
+            {/* Month Selector */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelectedMonth(selectedMonth === 1 ? 12 : selectedMonth - 1)}
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-bold text-slate-200 px-2">
+                {calendarData?.month_name} {selectedYear}
+              </span>
+              <button
+                onClick={() => setSelectedMonth(selectedMonth === 12 ? 1 : selectedMonth + 1)}
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Day Names Grid */}
+          <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+            <div>Mon</div>
+            <div>Tue</div>
+            <div>Wed</div>
+            <div>Thu</div>
+            <div>Fri</div>
+            <div>Sat</div>
+            <div>Sun</div>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-2">
+            {calendarData?.days.map((day) => {
+              const isSelected = selectedDay?.date === day.date;
               return (
                 <div
-                  key={step.days}
-                  onClick={() => setHorizonDays(step.days)}
-                  className={`p-6 rounded-3xl border transition-all cursor-pointer relative overflow-hidden group ${
-                    isSweetSpot
-                      ? "bg-gradient-to-b from-cyan-950/50 via-slate-900 to-slate-950 border-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.15)] ring-1 ring-cyan-400/50"
-                      : "bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90"
+                  key={day.date}
+                  onClick={() => handleSelectDay(day)}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer text-center relative ${
+                    isSelected
+                      ? 'bg-slate-800 border-cyan-400 ring-2 ring-cyan-400/40 shadow-lg shadow-cyan-950/40'
+                      : 'bg-slate-950/70 hover:bg-slate-800/60 border-slate-800/80 hover:border-slate-700'
                   }`}
                 >
-                  {isSweetSpot && (
-                    <div className="absolute top-0 right-0 px-3 py-1 bg-cyan-500 text-black font-mono font-black text-[9px] uppercase tracking-wider rounded-bl-xl shadow-md">
-                      RECOMMENDED WINDOW
-                    </div>
+                  {day.is_cheapest && (
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-full text-[9px] font-black bg-emerald-500 text-slate-950 uppercase tracking-tight shadow">
+                      Cheapest
+                    </span>
                   )}
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl">{step.icon}</span>
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${step.riskColor}`}>
-                        {step.badge}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-xs font-mono text-slate-400 font-bold uppercase block">{step.title}</span>
-                      <span className="text-3xl font-black font-mono text-white tracking-tight">
-                        ₹{estPrice.toLocaleString()}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
-                      <div className="flex items-center justify-between text-xs font-mono">
-                        <span className="text-slate-400">vs Spot Fare:</span>
-                        <span className={savingsFromSpot > 0 ? "text-emerald-400 font-bold" : "text-rose-400"}>
-                          {savingsFromSpot > 0 ? `-₹${savingsFromSpot.toLocaleString()}` : "+35% Premium"}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 leading-snug">{step.desc}</p>
-                    </div>
+                  <div className="text-[11px] font-semibold text-slate-400">
+                    {new Date(day.date).getDate()}
+                  </div>
+                  <div className="text-xs sm:text-sm font-extrabold text-white mt-1">
+                    ₹{day.fare.toLocaleString()}
+                  </div>
+                  <div className="mt-1">
+                    <span
+                      className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider ${
+                        day.status === 'LOW'
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : day.status === 'HIGH'
+                          ? 'bg-rose-500/20 text-rose-400'
+                          : 'bg-cyan-500/10 text-cyan-300'
+                      }`}
+                    >
+                      {day.status}
+                    </span>
                   </div>
                 </div>
               );
             })}
           </div>
-        </section>
 
-
-        {/* ========================================================================= */}
-        {/* 4. WHERE TO BUY: CHECKOUT PRICE TRANSPARENCY */}
-        {/* ========================================================================= */}
-        <section className="p-6 sm:p-8 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-6">
-          <div className="border-b border-slate-800 pb-4">
-            <h2 className="text-xl font-black text-white flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5 text-indigo-400" />
-              <span>Where to Buy: Final Checkout Price Comparison</span>
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400">
-              OTAs display base flight prices but charge convenience fees at checkout. Here is what you actually pay:
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="p-5 rounded-2xl bg-slate-950/90 border border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.1)] space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-white">Airline Official Direct</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  CHEAPEST
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] font-mono text-slate-500 block uppercase">Final Total Paid</span>
-                <span className="text-3xl font-black font-mono text-emerald-400">
-                  ₹{currentMedian.toLocaleString()}
-                </span>
-              </div>
-              <div className="space-y-1 text-xs font-mono text-slate-400 pt-2 border-t border-slate-800">
-                <div className="flex justify-between">
-                  <span>Base Flight:</span>
-                  <span>₹{(currentMedian - 950).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Taxes & UDF:</span>
-                  <span>₹950</span>
-                </div>
-                <div className="flex justify-between text-emerald-400 font-bold">
-                  <span>Convenience Fee:</span>
-                  <span>₹0 (UPI)</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-400">Direct booking on IndiGo / Air India with zero platform markup.</p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-white">EaseMyTrip</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">
-                  COUPON DEAL
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] font-mono text-slate-500 block uppercase">Final Total Paid</span>
-                <span className="text-3xl font-black font-mono text-white">
-                  ₹{currentMedian.toLocaleString()}
-                </span>
-              </div>
-              <div className="space-y-1 text-xs font-mono text-slate-400 pt-2 border-t border-slate-800">
-                <div className="flex justify-between">
-                  <span>Base + Taxes:</span>
-                  <span>₹{currentMedian.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-cyan-400">
-                  <span>Convenience Fee:</span>
-                  <span>₹0 (With Coupon)</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-400">Waives convenience fee if promotional promo code is applied.</p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-white">MakeMyTrip / Goibibo</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">
-                  +₹399 FEE
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] font-mono text-slate-500 block uppercase">Final Total Paid</span>
-                <span className="text-3xl font-black font-mono text-slate-200">
-                  ₹{(currentMedian + 399).toLocaleString()}
-                </span>
-              </div>
-              <div className="space-y-1 text-xs font-mono text-slate-400 pt-2 border-t border-slate-800">
-                <div className="flex justify-between">
-                  <span>Base + Taxes:</span>
-                  <span>₹{currentMedian.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-rose-400">
-                  <span>Convenience Fee:</span>
-                  <span>+₹399 / pax</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-400">Adds statutory ₹399 payment processing fee per ticket at checkout.</p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-white">Cleartrip / Flipkart</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                  +₹349 FEE
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] font-mono text-slate-500 block uppercase">Final Total Paid</span>
-                <span className="text-3xl font-black font-mono text-slate-200">
-                  ₹{(currentMedian + 349).toLocaleString()}
-                </span>
-              </div>
-              <div className="space-y-1 text-xs font-mono text-slate-400 pt-2 border-t border-slate-800">
-                <div className="flex justify-between">
-                  <span>Base + Taxes:</span>
-                  <span>₹{currentMedian.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-amber-400">
-                  <span>Convenience Fee:</span>
-                  <span>+₹349 / pax</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-400">Standard OTA surcharge applies unless SuperCoins are redeemed.</p>
-            </div>
-          </div>
-        </section>
-
-
-        {/* ========================================================================= */}
-        {/* 5. COMPACT LIVE FLIGHT QUOTES WITH TIME-OF-DAY FILTERS (NO ENDLESS SCROLL) */}
-        {/* ========================================================================= */}
-        <section className="p-6 sm:p-8 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-            <div>
-              <h2 className="text-xl font-black text-white flex items-center gap-2">
-                <Plane className="h-5 w-5 text-cyan-400" />
-                <span>Live Flight Quotes ({origin} ➔ {destination})</span>
-              </h2>
-              <span className="text-xs font-mono text-slate-400">
-                {liveOffers.length > 0
-                  ? `Showing ${Math.min(visibleFlightsLimit, filteredFlights.length)} of ${filteredFlights.length} matching flights`
-                  : searchStatus || "Direct live market feeds"}
+          {/* Legend */}
+          <div className="mt-4 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-400">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" /> 🟢 LOW (Save up to 30%)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" /> 🟡 NORMAL (Standard fare)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-400" /> 🔴 HIGH (Weekend / Surge)
               </span>
             </div>
+            <span className="italic">{calendarData?.disclaimer}</span>
+          </div>
+        </div>
 
-            {/* Time of Day Pill Filters */}
-            <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
-              <button
-                onClick={() => setFlightFilterTime("ALL")}
-                className={`px-3 py-1 rounded-xl transition-all ${
-                  flightFilterTime === "ALL" ? "bg-cyan-500 text-black font-bold" : "bg-slate-800 text-slate-400 hover:text-white"
-                }`}
-              >
-                All Times
-              </button>
-              <button
-                onClick={() => setFlightFilterTime("MORNING")}
-                className={`px-3 py-1 rounded-xl transition-all flex items-center gap-1 ${
-                  flightFilterTime === "MORNING" ? "bg-cyan-500 text-black font-bold" : "bg-slate-800 text-slate-400 hover:text-white"
-                }`}
-              >
-                <Sunrise className="h-3 w-3" />
-                <span>Morning</span>
-              </button>
-              <button
-                onClick={() => setFlightFilterTime("AFTERNOON")}
-                className={`px-3 py-1 rounded-xl transition-all flex items-center gap-1 ${
-                  flightFilterTime === "AFTERNOON" ? "bg-cyan-500 text-black font-bold" : "bg-slate-800 text-slate-400 hover:text-white"
-                }`}
-              >
-                <Sun className="h-3 w-3" />
-                <span>Afternoon</span>
-              </button>
-              <button
-                onClick={() => setFlightFilterTime("EVENING")}
-                className={`px-3 py-1 rounded-xl transition-all flex items-center gap-1 ${
-                  flightFilterTime === "EVENING" ? "bg-cyan-500 text-black font-bold" : "bg-slate-800 text-slate-400 hover:text-white"
-                }`}
-              >
-                <Moon className="h-3 w-3" />
-                <span>Evening</span>
-              </button>
+        {/* ADVANCE BOOKING HORIZON MATRIX (T+1 to T+45) */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Clock className="w-5 h-5 text-cyan-400" />
+                Advance Purchase Horizon Curve ({origin} ➔ {destination})
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Historical empirical fare trajectory across booking lead times.
+              </p>
             </div>
+            <span className="text-xs px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+              Sweet Spot: T+14 to T+21
+            </span>
           </div>
 
-          {/* Compact 2-Column Grid */}
-          {displayedFlights.length > 0 ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {displayedFlights.map((flight, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-cyan-500/40 transition-all shadow-sm space-y-3 group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                          {flight.carrier_code || "6E"}
-                        </span>
-                        <span className="font-bold text-xs text-white truncate max-w-[120px]">
-                          {flight.airline || "IndiGo"}
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-500">{flight.flight_number}</span>
-                      </div>
-
-                      <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        🟢 FAIR
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {[
+              { h: 'T+1', days: 'Tomorrow (Tatkal)', mult: 1.35, note: 'Peak Last-Minute Surcharge' },
+              { h: 'T+7', days: '1 Week Out', mult: 1.05, note: 'Business Travel Window' },
+              { h: 'T+15', days: '2 Weeks Out', mult: 0.88, isSweet: true, note: '★ Historical Sweet Spot' },
+              { h: 'T+30', days: '1 Month Out', mult: 0.82, note: 'Early Bird Discount Tier' },
+              { h: 'T+45', days: '1.5 Months Out', mult: 0.80, note: 'Base Inventory Baseline' },
+            ].map((hz) => {
+              const estFare = roundToTens((fareScore?.typical_fare || 5400) * hz.mult);
+              return (
+                <div
+                  key={hz.h}
+                  className={`p-4 rounded-xl border transition ${
+                    hz.isSweet
+                      ? 'bg-emerald-950/30 border-emerald-500/50 shadow-md shadow-emerald-950/20'
+                      : 'bg-slate-950/60 border-slate-800/80'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-sm text-white">{hz.h}</span>
+                    {hz.isSweet && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500 text-slate-950 uppercase">
+                        Sweet Spot
                       </span>
-                    </div>
-
-                    {/* Flight Trajectory Route */}
-                    <div className="flex items-center justify-between text-center pt-1">
-                      <div className="text-left">
-                        <span className="text-base font-black font-mono text-white block">
-                          {(flight.departure_time || "06:15").slice(0, 5)}
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-400">{origin}</span>
-                      </div>
-
-                      <div className="flex-1 px-3 flex flex-col items-center">
-                        <span className="text-[9px] font-mono text-slate-500">2h 15m</span>
-                        <div className="w-full flex items-center gap-1 my-0.5">
-                          <div className="h-0.5 flex-1 bg-slate-800" />
-                          <Plane className="h-3 w-3 text-cyan-400 transform rotate-90" />
-                          <div className="h-0.5 flex-1 bg-slate-800" />
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-base font-black font-mono text-white block">
-                          {(flight.arrival_time || "08:30").slice(0, 5)}
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-400">{destination}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-end justify-between pt-2.5 border-t border-slate-900">
-                      <div>
-                        <span className="text-[9px] font-mono text-slate-500 uppercase block">Total Fare</span>
-                        <span className="text-xl font-black font-mono text-cyan-400">
-                          ₹{flight.total_fare.toLocaleString()}
-                        </span>
-                      </div>
-
-                      <div className="text-right text-[10px] font-mono text-slate-500">
-                        <span>Base: ₹{flight.base_fare?.toLocaleString() || "4,400"}</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                ))}
+                  <div className="text-xs text-slate-400 mt-0.5">{hz.days}</div>
+                  <div className="text-lg font-black text-cyan-300 mt-2">₹{estFare.toLocaleString()}</div>
+                  <div className="text-[10px] text-slate-400 mt-1">{hz.note}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* WHERE TO BUY CHECKOUT TRANSPARENCY & PRICE ALERTS */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Where to Buy Transparency */}
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm">
+            <h2 className="text-base font-bold text-white flex items-center gap-2 mb-3">
+              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+              Where to Buy: Checkout Fee Transparency
+            </h2>
+            <p className="text-xs text-slate-400 mb-4">
+              OTAs display low initial fares but add mandatory platform convenience fees at final payment checkout.
+            </p>
+
+            <div className="space-y-3">
+              {/* Airline Direct */}
+              <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between">
+                <div>
+                  <div className="font-extrabold text-sm text-white flex items-center gap-2">
+                    Airline Official Direct (IndiGo / Air India)
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-500 text-slate-950 uppercase">
+                      Cheapest
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">Convenience Fee: ₹0 (UPI / Net Banking)</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-extrabold text-sm text-emerald-400">
+                    ₹{selectedDay ? selectedDay.fare.toLocaleString() : '5,820'}
+                  </div>
+                  <div className="text-[10px] text-emerald-300 font-semibold">Zero Markup</div>
+                </div>
               </div>
 
-              {/* Show More / Show Less Toggle Button (Prevents Infinite Scrolling) */}
-              {filteredFlights.length > 6 && (
-                <div className="flex justify-center pt-2">
-                  <button
-                    onClick={() =>
-                      setVisibleFlightsLimit((prev) => (prev >= filteredFlights.length ? 6 : prev + 12))
-                    }
-                    className="px-6 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 font-mono text-xs font-bold flex items-center gap-2 transition-all hover:scale-105 shadow-md"
-                  >
-                    <span>
-                      {visibleFlightsLimit >= filteredFlights.length
-                        ? "Collapse Flight List ▴"
-                        : `Show More Flights (${filteredFlights.length - visibleFlightsLimit} remaining) ▾`}
-                    </span>
-                  </button>
+              {/* EaseMyTrip */}
+              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-sm text-slate-200">EaseMyTrip</div>
+                  <div className="text-xs text-slate-400 mt-0.5">Convenience Fee: ₹0 (With Promo Coupon)</div>
                 </div>
-              )}
+                <div className="text-right">
+                  <div className="font-bold text-sm text-slate-100">
+                    ₹{selectedDay ? selectedDay.fare.toLocaleString() : '5,820'}
+                  </div>
+                  <div className="text-[10px] text-slate-400">Coupon Match</div>
+                </div>
+              </div>
+
+              {/* MakeMyTrip */}
+              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-sm text-slate-200">MakeMyTrip / Goibibo</div>
+                  <div className="text-xs text-slate-400 mt-0.5">Convenience Fee: +₹399 / pax at checkout</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-sm text-rose-400">
+                    ₹{selectedDay ? (selectedDay.fare + 399).toLocaleString() : '6,219'}
+                  </div>
+                  <div className="text-[10px] text-rose-400 font-semibold">+₹399 Fee</div>
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="p-8 rounded-2xl bg-slate-950/50 border border-slate-800 text-center space-y-3">
-              <Plane className="h-8 w-8 text-cyan-500 mx-auto animate-bounce" />
-              <p className="text-sm text-slate-400">No flights matched your filter. Click below to refresh live feeds.</p>
+          </div>
+
+          {/* Price Alert Simulator (Local/Demo) */}
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm flex flex-col justify-between">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2 mb-2">
+                <Bell className="w-5 h-5 text-cyan-400" />
+                Set Passenger Price Alert
+              </h2>
+              <p className="text-xs text-slate-400 mb-4">
+                Receive an instant on-screen alert if airfares for {origin} ➔ {destination} on {selectedDay?.date || 'this date'} drop below your target price.
+              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-1">Target Fare Threshold (₹)</label>
+                  <input
+                    type="number"
+                    value={alertTargetFare}
+                    onChange={(e) => setAlertTargetFare(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+                    placeholder="5000"
+                  />
+                </div>
+
+                <button
+                  onClick={() => setAlertSet(true)}
+                  className="w-full py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md transition"
+                >
+                  {alertSet ? '✓ Alert Active (Local Simulator)' : 'Set Price Alert'}
+                </button>
+              </div>
+            </div>
+
+            {alertSet && (
+              <div className="mt-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-center gap-2 animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>Price alert set locally for {origin} ➔ {destination} below ₹{alertTargetFare}.</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* "WHY THIS PREDICTION?" EXPLAINABILITY MODAL */}
+      {showWhyModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+            <button
+              onClick={() => setShowWhyModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 text-cyan-400 mb-2">
+              <Sparkles className="w-5 h-5" />
+              <span className="text-xs font-bold uppercase tracking-wider">Model Explainability</span>
+            </div>
+
+            <h3 className="text-lg font-bold text-white mb-2">
+              Why this recommendation for {origin} ➔ {destination}?
+            </h3>
+
+            <p className="text-xs text-slate-400 mb-4">
+              VAYU&apos;s Time-Series Gradient Boosted regressor evaluates real-time market microstructure variance, booking window lead times, and empirical route percentiles:
+            </p>
+
+            <div className="space-y-2.5 mb-6">
+              {recommendation?.top_factors.map((factor, idx) => (
+                <div key={idx} className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                    {idx + 1}
+                  </span>
+                  <span>{factor}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <span>Model Confidence: <strong className="text-cyan-400">{Math.round((recommendation?.confidence_score || 0.82) * 100)}%</strong></span>
               <button
-                onClick={handleLiveSearch}
-                className="px-4 py-2 rounded-xl bg-cyan-500 text-black font-bold text-xs shadow-md"
+                onClick={() => setShowWhyModal(false)}
+                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold"
               >
-                Scan Live Inventory Now
+                Close
               </button>
             </div>
-          )}
-        </section>
-
-
-        {/* ========================================================================= */}
-        {/* 6. TRANSPARENT STATUTORY FEE BREAKDOWN */}
-        {/* ========================================================================= */}
-        <section className="p-6 sm:p-8 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-6">
-          <div className="border-b border-slate-800 pb-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Info className="h-5 w-5 text-cyan-400" />
-              <span>Where Does Your ₹6,000 Ticket Money Go?</span>
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400">
-              DGCA & MoCA statutory breakdown of an average Indian domestic ticket:
-            </p>
           </div>
-
-          <div className="space-y-2">
-            <div className="h-6 w-full rounded-xl overflow-hidden flex font-mono text-[10px] font-bold text-black shadow-inner">
-              <div style={{ width: "73%" }} className="bg-blue-500 flex items-center justify-center truncate px-1">
-                Base Fare 73%
-              </div>
-              <div style={{ width: "11%" }} className="bg-indigo-400 flex items-center justify-center truncate px-1">
-                UDF 11%
-              </div>
-              <div style={{ width: "10%" }} className="bg-amber-400 flex items-center justify-center truncate px-1">
-                Fuel 10%
-              </div>
-              <div style={{ width: "4%" }} className="bg-emerald-400 flex items-center justify-center truncate px-1">
-                GST 4%
-              </div>
-              <div style={{ width: "2%" }} className="bg-purple-400 flex items-center justify-center truncate" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono text-xs">
-            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-              <span className="text-slate-500 block text-[10px] uppercase">1. Airline Base</span>
-              <span className="text-lg font-black text-blue-400">₹4,400</span>
-              <span className="text-[10px] text-slate-400 block">Flight & Seat (73%)</span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-              <span className="text-slate-500 block text-[10px] uppercase">2. Airport UDF</span>
-              <span className="text-lg font-black text-indigo-400">₹650</span>
-              <span className="text-[10px] text-slate-400 block">Airport Infra (11%)</span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-              <span className="text-slate-500 block text-[10px] uppercase">3. Fuel Surcharge</span>
-              <span className="text-lg font-black text-amber-400">₹600</span>
-              <span className="text-[10px] text-slate-400 block">Jet Fuel YQ (10%)</span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-              <span className="text-slate-500 block text-[10px] uppercase">4. Govt GST</span>
-              <span className="text-lg font-black text-emerald-400">₹250</span>
-              <span className="text-[10px] text-slate-400 block">MoF Statutory (4%)</span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-              <span className="text-slate-500 block text-[10px] uppercase">5. OTA Surcharge</span>
-              <span className="text-lg font-black text-purple-400">₹300</span>
-              <span className="text-[10px] text-slate-400 block">Portal Fee (2%)</span>
-            </div>
-          </div>
-        </section>
-
-      </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function roundToTens(val: number): number {
+  return Math.round(val / 10) * 10;
 }

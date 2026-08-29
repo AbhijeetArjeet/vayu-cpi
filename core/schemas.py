@@ -475,3 +475,179 @@ class IndexLabResponse(BaseModel):
     formula_latex: str
     econometric_notes: str
 
+
+# ============================================================================
+# WEEK-WISE AIRFARE INTELLIGENCE SCHEMAS
+# ============================================================================
+
+class WeeklyRouteDetail(BaseModel):
+    corridor: str
+    origin: str
+    destination: str
+    weekly_index: float
+    prev_week_index: float
+    wow_change_pct: float
+    average_fare: float
+    observation_count: int
+    status: str  # RISING, STABLE, FALLING
+    dgca_weight: float
+
+
+class WeeklyCarrierDetail(BaseModel):
+    carrier: str
+    carrier_code: str
+    weekly_index: float
+    prev_week_index: float
+    wow_change_pct: float
+    market_share_pct: float
+
+
+class WeeklyHorizonDetail(BaseModel):
+    horizon_days: int
+    booking_window: str
+    weekly_index: float
+    prev_week_index: float
+    wow_change_pct: float
+    weight_alpha: float
+
+
+class WeeklyNationalSeriesItem(BaseModel):
+    week_label: str
+    week_start: str
+    week_end: str
+    national_index: float
+    wow_change_pct: float
+    observation_count: int
+
+
+class WeeklyAirfareResponse(BaseModel):
+    week_start: str
+    week_end: str
+    week_label: str
+    national_index: float
+    prev_week_index: float
+    wow_change_pct: float
+    four_week_average: float
+    mom_change_pct: float
+    cheapest_corridor: str
+    fastest_rising_route: str
+    most_volatile_route: str
+    market_signal: str  # STABLE, RISING, HIGH_PRESSURE
+    routes_rising_pct: float
+    routes_falling_pct: float
+    routes_stable_pct: float
+    total_observations: int
+    data_freshness: str
+    data_quality: str  # HIGH, MODERATE, LOW
+    routes: List[WeeklyRouteDetail]
+    carriers: List[WeeklyCarrierDetail]
+    horizons: List[WeeklyHorizonDetail]
+    historical_series: List[WeeklyNationalSeriesItem]
+    methodology_notes: str = "Weekly aggregated Jevons elementary micro-indices weighted by DGCA passenger volume."
+
+
+# ============================================================================
+# PASSENGER INTELLIGENCE & CALENDAR SCHEMAS
+# ============================================================================
+
+class FareCalendarDay(BaseModel):
+    date: str
+    day_of_week: str
+    fare: float
+    status: str  # LOW, NORMAL, HIGH
+    is_cheapest: bool = False
+    savings_vs_peak: float = 0.0
+    booking_horizon_days: int = 15
+
+
+class FareCalendarResponse(BaseModel):
+    origin: str
+    destination: str
+    year: int
+    month: int
+    month_name: str
+    days: List[FareCalendarDay]
+    cheapest_date: str
+    cheapest_fare: float
+    peak_fare: float
+    max_savings: float
+    best_departure_window: str
+    best_booking_horizon: str
+    typical_fare_range: str
+    data_sufficient: bool = True
+    disclaimer: str = "Estimates computed from VAYU empirical price distributions and seasonal yield curves."
+
+
+class FareScoreResponse(BaseModel):
+    origin: str
+    destination: str
+    current_fare: float
+    typical_fare: float
+    fare_score: int  # 0 to 100
+    rating: str  # Very Cheap (0-30), Cheap (31-50), Normal (51-70), Expensive (71-85), Very Expensive (86-100)
+    percentile: int
+    deviation_pct: float
+    recommendation_text: str
+    recommended_action: str
+
+
+class BookingRecommendationResponse(BaseModel):
+    origin: str
+    destination: str
+    departure_date: str
+    current_fare: float
+    recommendation: str  # BOOK NOW, WAIT & WATCH, CONSIDER ALTERNATIVE DATE
+    expected_short_term_movement_pct: float
+    confidence_score: float
+    primary_reason: str
+    top_factors: List[str]
+    best_horizon_sweetspot: str = "T+14 to T+21 days before departure"
+
+
+# ============================================================================
+# MACHINE LEARNING PIPELINE SCHEMAS
+# ============================================================================
+
+class MLPredictionRequest(BaseModel):
+    origin: str
+    destination: str
+    departure_date: str
+    booking_horizon: int = 7
+    carrier: Optional[str] = None
+    current_fare: Optional[float] = None
+
+
+class MLPredictionResponse(BaseModel):
+    origin: str
+    destination: str
+    departure_date: str
+    booking_horizon: int
+    predicted_fare: float
+    expected_change_pct: float
+    prediction_direction: str  # UP, STABLE, DOWN
+    confidence: float
+    recommendation: str  # BOOK, WAIT, SWITCH_DATE
+    top_factors: List[str]
+    model_name: str
+    features_used_count: int
+    evaluation_context: str
+
+
+class MLModelMetricsResponse(BaseModel):
+    model_name: str
+    algorithm: str
+    mae: float
+    rmse: float
+    mape: float
+    r2_score: float
+    directional_accuracy_pct: float
+    test_period_start: str
+    test_period_end: str
+    train_observations_count: int
+    test_observations_count: int
+    feature_importance: Dict[str, float]
+    training_timestamp: str
+    is_trained: bool
+    status: str = "READY"
+
+
