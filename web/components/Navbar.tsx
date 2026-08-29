@@ -81,6 +81,7 @@ export default function Navbar() {
 
   const navLinks = [
     { name: "Overview", href: "/", icon: Plane },
+    { name: "Passenger Hub", href: "/passenger", icon: Sparkles, badge: "CITIZEN" },
     { name: "Explainer", href: "/explainer", icon: HelpCircle, badge: "WHY" },
     { name: "Shocks", href: "/shocks", icon: ShieldAlert, badge: "ALERT" },
     { name: "Fair Fare", href: "/fair-fare", icon: Calculator },

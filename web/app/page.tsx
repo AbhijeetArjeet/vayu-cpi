@@ -34,7 +34,7 @@ import {
   RouteConcentration,
   MarketCoverageSummary,
 } from "../lib/api";
-import { Activity, Layers, AlertCircle } from "lucide-react";
+import { Activity, Layers, AlertCircle, Plane } from "lucide-react";
 
 function CommandCenterContent() {
   const searchParams = useSearchParams();
@@ -133,6 +133,30 @@ function CommandCenterContent() {
           </div>
         </div>
       )}
+
+      {/* Citizen / Passenger Mode Switcher Banner */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-cyan-500/10 border border-blue-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20 shrink-0">
+            <Plane className="h-5 w-5" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block font-mono">
+              Simple Passenger & Citizen View Available
+            </span>
+            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+              Looking for simple ticket price checks, fair-fare verification, and best-time-to-book tips without macroeconomic charts?
+            </p>
+          </div>
+        </div>
+        <a
+          href="/passenger"
+          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shrink-0 flex items-center gap-1.5 shadow-md transition-all hover:scale-105"
+        >
+          <span>Open Passenger Hub</span>
+          <span className="text-xs">➔</span>
+        </a>
+      </div>
 
       {/* 1. Global Data Mode Selector */}
       <DataModeSelector
