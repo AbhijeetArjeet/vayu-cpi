@@ -7,6 +7,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY core/ core/
 COPY services/ services/
+COPY config/ config/
+COPY data/ data/
+COPY docs/ docs/
 
 ENV PYTHONUNBUFFERED=1
 
