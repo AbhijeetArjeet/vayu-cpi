@@ -10,7 +10,8 @@ COPY services/ services/
 COPY config/ config/
 COPY data/ data/
 COPY docs/ docs/
+COPY start.py .
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["sh", "-c", "uvicorn services.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["python", "start.py"]
