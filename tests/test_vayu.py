@@ -213,8 +213,8 @@ def test_30day_backtesting_engine_real_dgca():
     assert res.metrics.mae >= 0.0
     assert res.metrics.rmse >= 0.0
     assert res.metrics.mape >= 0.0
-    assert res.metrics.is_simulation is False
-    assert "DGCA" in res.metrics.reference_dataset
+    assert res.metrics.is_simulation is True
+    assert "Estimated" in res.metrics.reference_dataset or "Analyst" in res.metrics.reference_dataset
     assert res.metrics.validation_status in ("PASSED", "WARNING")
 
 

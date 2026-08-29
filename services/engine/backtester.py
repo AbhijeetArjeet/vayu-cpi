@@ -2,14 +2,15 @@
 services/engine/backtester.py
 Backtesting and Econometric Model Validation Engine.
 
-Provides two distinct validation pathways:
-1. `mode="real_dgca"` (Default): Empirical backtesting against authentic DGCA / MoCA
-   domestic tariff baseline references (loaded from `data/reference/dgca_domestic_fares_reference.csv`).
-   Computes genuine MAE, RMSE, MAPE, and Pearson correlation between real VAYU-CPI calculated indices
-   and official regulatory baseline benchmarks. Zero synthetic noise or wave functions.
+Provides two validation pathways:
+1. `mode="baseline_reference"` (Default): Evaluates computed VAYU-CPI index values against
+   estimated 2024 domestic baseline reference tariffs (loaded from `data/reference/estimated_reference_fares.csv`).
+   Calculates genuine MAE, RMSE, MAPE, and Pearson correlation.
+   Transparently labeled with `is_simulation=True` (since reference fares are analyst baseline estimates,
+   not an official government-published route-level tariff table).
 
 2. `mode="synthetic_self_check"`: Internal mathematical self-consistency check of the
-   Jevons-Laspeyres aggregation formulas. Transparently labeled with `is_simulation=True`.
+   Jevons-Laspeyres aggregation formulas using deterministic test curves. `is_simulation=True`.
 
 Computes standard statistical error metrics:
 - Mean Absolute Error (MAE): (1/N) * sum |y_i - ŷ_i|
@@ -51,21 +52,19 @@ def _calculate_pearson_correlation(x: List[float], y: List[float]) -> float:
     return round(cov / math.sqrt(var_x * var_y), 4)
 
 
-def run_real_dgca_backtest(
+def run_baseline_reference_backtest(
     end_date: date | None = None,
     observation_days: int = 30,
     data_mode: str = "combined",
 ) -> BacktestResult:
     """
-    Executes an empirical backtest evaluating actual VAYU-CPI calculated index values
-    against official DGCA & Ministry of Civil Aviation domestic tariff baseline benchmarks.
-    Zero synthetic wave equations used.
+    Evaluates computed VAYU-CPI index values against estimated 2024 baseline reference tariffs.
+    Zero synthetic wave equations used for index generation.
     """
     end_date = end_date or date.today()
     start_date = end_date - timedelta(days=observation_days - 1)
 
-    # Ensure DGCA reference dataset is available
-    dgca_benchmarks = load_dgca_reference_dataset()
+    load_dgca_reference_dataset()
     ref_base_level = get_dgca_weighted_baseline_index()  # 100.0 (Base 2024)
 
     comparisons: List[BacktestDailyComparison] = []
@@ -78,11 +77,8 @@ def run_real_dgca_backtest(
         cur_date = end_date - timedelta(days=offset)
         cur_date_str = cur_date.isoformat()
 
-        # Compute genuine VAYU-CPI composite index for that date
         cpi_res = compute_national_composite_cpi(cur_date, mode=data_mode)
         vayu_idx = round(cpi_res.composite_index, 2)
-
-        # Authentic DGCA Reference Index Baseline (Base 2024 = 100.0)
         reference_idx = round(ref_base_level, 2)
 
         abs_err = round(abs(vayu_idx - reference_idx), 2)
@@ -117,18 +113,17 @@ def run_real_dgca_backtest(
         rmse=rmse,
         mape=mape,
         pearson_correlation=corr,
-        reference_dataset="DGCA Tariff Monitoring Unit & MoCA Domestic Returns (2024-2025)",
+        reference_dataset="Estimated 2024 Baseline Reference (Analyst Model — not official DGCA data)",
         model_name="VAYU-CPI Laspeyres-Jevons Hybrid Engine",
-        is_simulation=False,
+        is_simulation=True,
         validation_status="PASSED" if mape < 10.0 else "WARNING",
     )
 
     notes = (
-        "Empirical validation against DGCA & MoCA Domestic Tariff Returns (Base 2024 = 100). "
-        "Evaluates real computed VAYU-CPI composite index values against official regulatory baseline tariffs "
-        "across domestic city-pair corridors. "
-        "Scope & Limitations: Validates macro-level national composite index tracking against official published returns. "
-        "Does not validate individual micro-horizon intraday dynamic pricing."
+        "Validation of computed VAYU-CPI index against estimated 2024 baseline reference tariffs. "
+        "⚠️ TRANSPARENCY NOTE: Reference series is an analyst-modeled base period estimate (P^0_{r,h}), "
+        "NOT an official published DGCA route-level table, as Indian aviation operates under deregulated "
+        "market rules (Aircraft Rules 1937, Rule 135). Evaluates Laspeyres-Jevons aggregation stability."
     )
 
     return BacktestResult(
@@ -144,11 +139,7 @@ def run_synthetic_self_check(
 ) -> BacktestResult:
     """
     Runs a 30-day synthetic self-consistency validation of the VAYU-CPI
-    Jevons-Laspeyres aggregation pipeline.
-
-    IMPORTANT: Both the reference_index and vayu_index series are generated
-    from deterministic sine/cosine functions — they are NOT sourced from
-    real DGCA fare data. This validates pipeline numerical stability only.
+    Jevons-Laspeyres aggregation pipeline using deterministic mathematical test curves.
     """
     end_date = end_date or date.today()
     start_date = end_date - timedelta(days=29)
@@ -159,7 +150,6 @@ def run_synthetic_self_check(
     abs_errors: List[float] = []
     pct_errors: List[float] = []
 
-    # Reference base index baseline
     base_cpi = compute_national_composite_cpi(end_date, mode=mode)
     base_level = base_cpi.composite_index if base_cpi.composite_index > 0 else 104.5
 
@@ -167,14 +157,14 @@ def run_synthetic_self_check(
         cur_date = end_date - timedelta(days=offset)
         cur_date_str = cur_date.isoformat()
 
-        # Synthetic deterministic reference trajectory (NOT real DGCA data)
+        # Synthetic deterministic reference trajectory
         ref_wave = (
             0.038 * math.sin((offset / 6.0) * math.pi)
             + 0.015 * math.cos((offset / 3.5) * math.pi)
         )
         reference_index = round(base_level * (1.0 - ref_wave), 2)
 
-        # Synthetic VAYU-CPI model index (derived from reference with small noise — NOT from live data)
+        # Synthetic model index (derived from reference with test noise)
         model_noise = 0.009 * math.sin((offset / 2.0) * math.pi)
         vayu_index = round(reference_index * (1.0 + model_noise), 2)
 
@@ -196,7 +186,6 @@ def run_synthetic_self_check(
             )
         )
 
-    # Error metrics
     n = len(comparisons)
     mae = round(sum(abs_errors) / n, 3)
     rmse = round(math.sqrt(sum(e**2 for e in abs_errors) / n), 3)
@@ -233,19 +222,20 @@ def run_synthetic_self_check(
 
 def run_30day_backtest(
     end_date: date | None = None,
-    mode: str = "real_dgca",
+    mode: str = "baseline_reference",
 ) -> BacktestResult:
     """
     Unified entrypoint for backtesting and validation.
     Modes:
-    - 'real_dgca' (default): Validates against authentic DGCA / MoCA baseline reference dataset.
+    - 'baseline_reference' (default): Validates against estimated 2024 baseline reference tariffs.
     - 'synthetic_self_check' / 'synthetic': Internal mathematical self-consistency check.
     """
-    if mode in ("real_dgca", "historical", "combined", "live"):
-        return run_real_dgca_backtest(end_date=end_date)
+    if mode in ("baseline_reference", "real_dgca", "historical", "combined", "live"):
+        return run_baseline_reference_backtest(end_date=end_date)
     else:
         return run_synthetic_self_check(end_date=end_date)
 
 
 # Backward compatibility aliases
+run_real_dgca_backtest = run_baseline_reference_backtest
 run_30day_synthetic_validation = run_synthetic_self_check

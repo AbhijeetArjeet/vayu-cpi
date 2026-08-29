@@ -13,9 +13,10 @@ VAYU-CPI maintains strict provenance tracking across all data inputs.
 
 ### Directorate General of Civil Aviation (DGCA) & Ministry of Civil Aviation (MoCA)
 - **URL**: https://www.dgca.gov.in/
-- **Role in Project**: Official Domestic City-Pair Passenger Traffic Statistics and Parliamentary Tariff Returns.
-- **Reference Dataset**: `data/reference/dgca_domestic_fares_reference.csv`
-- **Usage**: Used to establish representative route basket weights ($w_r$), airline concentration benchmarks, and baseline tariffs ($P^0_{r,h}$) for Laspeyres-Jevons index compilation and empirical backtesting (`mode="real_dgca"`).
+- **Role in Project**: Official Domestic City-Pair Passenger Traffic Statistics (passenger volume counts for route weights $w_r$).
+- **Reference Dataset**: `data/reference/estimated_reference_fares.csv`
+- **Usage**: Used to establish representative route basket weights ($w_r$), airline concentration benchmarks, and baseline tariffs ($P^0_{r,h}$) for Laspeyres-Jevons index compilation and prototype backtesting.
+- **Transparency Note**: Under Rule 135 of Aircraft Rules 1937, domestic tariffs are deregulated; DGCA does not publish an open route-by-route fare feed. Baseline reference fares are analyst estimations based on market benchmarks.
 
 ---
 

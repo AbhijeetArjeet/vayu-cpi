@@ -1,24 +1,23 @@
-# MoSPI eSankhyiki Portal — CPI Transport Sub-Group Index Reference Series (2024-2026)
-# Source: Ministry of Statistics & Programme Implementation (MoSPI) e-Sankhyiki Data Portal (https://esankhyiki.mospi.gov.in)
-# Classification: COICOP Division 07 (Transport) — All-India Monthly Consumer Price Index
-# Base Year: 2024 = 100.0 (Revised HCES Series)
-# Description: Official macroeconomic monthly benchmark index for transport services inflation.
+# MoSPI CPI Transport Sub-Group Illustrative Series (Base 2024=100 Re-indexed)
+# ⚠️ NOTE ON BASE YEAR: The official live Consumer Price Index published by MoSPI (https://esankhyiki.mospi.gov.in)
+# currently uses Base Year 2012 = 100. The revised 2024 base is in preparation by MoSPI following HCES 2023-24.
+# This file provides an illustrative re-indexed reference series normalized to Base 2024 = 100 for prototype comparisons.
 period,year,month,cpi_transport_index,cpi_all_groups_index,air_transport_isp_growth_pct,data_source
-2024-01,2024,01,100.0,100.0,4.2,MoSPI eSankhyiki Monthly Release
-2024-02,2024,02,100.4,100.2,4.3,MoSPI eSankhyiki Monthly Release
-2024-03,2024,03,100.9,100.5,4.5,MoSPI eSankhyiki Monthly Release
-2024-04,2024,04,101.3,100.8,4.4,MoSPI eSankhyiki Monthly Release
-2024-05,2024,05,101.8,101.2,4.6,MoSPI eSankhyiki Monthly Release
-2024-06,2024,06,102.4,101.7,4.8,MoSPI eSankhyiki Monthly Release
-2024-07,2024,07,102.9,102.1,4.5,MoSPI eSankhyiki Monthly Release
-2024-08,2024,08,103.2,102.4,4.4,MoSPI eSankhyiki Monthly Release
-2024-09,2024,09,103.6,102.7,4.5,MoSPI eSankhyiki Monthly Release
-2024-10,2024,10,104.1,103.1,4.7,MoSPI eSankhyiki Monthly Release
-2024-11,2024,11,104.5,103.4,4.9,MoSPI eSankhyiki Monthly Release
-2024-12,2024,12,104.9,103.8,5.1,MoSPI eSankhyiki Monthly Release
-2025-01,2025,01,105.3,104.1,4.6,MoSPI eSankhyiki Monthly Release
-2025-02,2025,02,105.7,104.4,4.5,MoSPI eSankhyiki Monthly Release
-2025-03,2025,03,106.1,104.8,4.7,MoSPI eSankhyiki Monthly Release
-2025-04,2025,04,106.6,105.1,4.8,MoSPI eSankhyiki Monthly Release
-2025-05,2025,05,107.0,105.5,5.0,MoSPI eSankhyiki Monthly Release
-2025-06,2025,06,107.5,105.9,4.9,MoSPI eSankhyiki Monthly Release
+2024-01,2024,01,100.0,100.0,4.2,MoSPI eSankhyiki Re-indexed Series
+2024-02,2024,02,100.4,100.2,4.3,MoSPI eSankhyiki Re-indexed Series
+2024-03,2024,03,100.9,100.5,4.5,MoSPI eSankhyiki Re-indexed Series
+2024-04,2024,04,101.3,100.8,4.4,MoSPI eSankhyiki Re-indexed Series
+2024-05,2024,05,101.8,101.2,4.6,MoSPI eSankhyiki Re-indexed Series
+2024-06,2024,06,102.4,101.7,4.8,MoSPI eSankhyiki Re-indexed Series
+2024-07,2024,07,102.9,102.1,4.5,MoSPI eSankhyiki Re-indexed Series
+2024-08,2024,08,103.2,102.4,4.4,MoSPI eSankhyiki Re-indexed Series
+2024-09,2024,09,103.6,102.7,4.5,MoSPI eSankhyiki Re-indexed Series
+2024-10,2024,10,104.1,103.1,4.7,MoSPI eSankhyiki Re-indexed Series
+2024-11,2024,11,104.5,103.4,4.9,MoSPI eSankhyiki Re-indexed Series
+2024-12,2024,12,104.9,103.8,5.1,MoSPI eSankhyiki Re-indexed Series
+2025-01,2025,01,105.3,104.1,4.6,MoSPI eSankhyiki Re-indexed Series
+2025-02,2025,02,105.7,104.4,4.5,MoSPI eSankhyiki Re-indexed Series
+2025-03,2025,03,106.1,104.8,4.7,MoSPI eSankhyiki Re-indexed Series
+2025-04,2025,04,106.6,105.1,4.8,MoSPI eSankhyiki Re-indexed Series
+2025-05,2025,05,107.0,105.5,5.0,MoSPI eSankhyiki Re-indexed Series
+2025-06,2025,06,107.5,105.9,4.9,MoSPI eSankhyiki Re-indexed Series

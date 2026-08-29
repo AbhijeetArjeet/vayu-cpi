@@ -1,12 +1,13 @@
 """
 services/engine/dgca_reference_data.py
-Loader and accessor for authentic DGCA & Ministry of Civil Aviation domestic tariff baseline reference data.
+Loader and accessor for estimated 2024 domestic baseline reference data.
 
-Source:
-- Directorate General of Civil Aviation (DGCA) Tariff Monitoring Unit (TMU)
-- Ministry of Civil Aviation (MoCA) Parliamentary Tariff Returns (Lok Sabha / Rajya Sabha unstarred returns)
-- Baseline Calendar Period: 2024-2025 Calendar Base Benchmark
-- Reference File: data/reference/dgca_domestic_fares_reference.csv
+⚠️ TRANSPARENCY NOTICE:
+- These reference tariffs are analyst baseline estimations based on representative market corridor rates.
+- They are NOT from an official published DGCA route-level tariff table (the Indian domestic aviation
+  market is deregulated under Rule 135 of Aircraft Rules, 1937; DGCA does not publish open route-level fare feeds).
+- Reference File: data/reference/estimated_reference_fares.csv
+- Secondary Reference: data/reference/mospi_cpi_transport_reference.csv (MoSPI CPI Transport Sub-Index)
 """
 
 from __future__ import annotations
@@ -16,13 +17,13 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-logger = logging.getLogger("vayu-cpi.dgca-reference")
+logger = logging.getLogger("vayu-cpi.reference-data")
 
 REFERENCE_CSV_PATH = (
     Path(__file__).parent.parent.parent
     / "data"
     / "reference"
-    / "dgca_domestic_fares_reference.csv"
+    / "estimated_reference_fares.csv"
 )
 
 MOSPI_CSV_PATH = (
@@ -33,24 +34,24 @@ MOSPI_CSV_PATH = (
 )
 
 # In-memory cache for reference tariffs
-_DGCA_BENCHMARKS_CACHE: Optional[Dict[str, Dict[str, Any]]] = None
+_BENCHMARKS_CACHE: Optional[Dict[str, Dict[str, Any]]] = None
 _MOSPI_BENCHMARKS_CACHE: Optional[List[Dict[str, Any]]] = None
 
 
 def load_dgca_reference_dataset() -> Dict[str, Dict[str, Any]]:
     """
-    Loads and parses the official DGCA/MoCA domestic tariff reference dataset from CSV.
+    Loads and parses the estimated domestic baseline reference dataset from CSV.
     Returns a dictionary keyed by corridor (e.g., 'DEL-BOM').
     """
-    global _DGCA_BENCHMARKS_CACHE
-    if _DGCA_BENCHMARKS_CACHE is not None:
-        return _DGCA_BENCHMARKS_CACHE
+    global _BENCHMARKS_CACHE
+    if _BENCHMARKS_CACHE is not None:
+        return _BENCHMARKS_CACHE
 
     benchmarks: Dict[str, Dict[str, Any]] = {}
 
     if not REFERENCE_CSV_PATH.exists():
         logger.warning(
-            f"[DGCA_REFERENCE] Reference CSV not found at {REFERENCE_CSV_PATH}. Using standard fallback table."
+            f"[REFERENCE_DATA] Reference CSV not found at {REFERENCE_CSV_PATH}."
         )
         return {}
 
@@ -74,28 +75,27 @@ def load_dgca_reference_dataset() -> Dict[str, Dict[str, Any]]:
                     "traffic_share_pct": float(row.get("traffic_share_pct", 1.0)),
                     "source_citation": row.get(
                         "source_citation",
-                        "DGCA TMU & MoCA Domestic Tariff Returns 2024",
+                        "Analyst Baseline Model (Base 2024 Estimated)",
                     ),
                 }
 
-        _DGCA_BENCHMARKS_CACHE = benchmarks
-        logger.info(f"[DGCA_REFERENCE] Loaded {len(benchmarks)} corridor baselines from {REFERENCE_CSV_PATH.name}")
+        _BENCHMARKS_CACHE = benchmarks
+        logger.info(f"[REFERENCE_DATA] Loaded {len(benchmarks)} corridor baselines from {REFERENCE_CSV_PATH.name}")
         return benchmarks
     except Exception as e:
-        logger.error(f"[DGCA_REFERENCE] Failed to parse reference CSV: {e}")
+        logger.error(f"[REFERENCE_DATA] Failed to parse reference CSV: {e}")
         return {}
 
 
 def get_dgca_fare_benchmark(origin: str, destination: str, horizon_days: int) -> float:
     """
-    Returns the official DGCA reference benchmark tariff (in INR) for a given corridor and horizon.
+    Returns the estimated reference baseline tariff (in INR) for a given corridor and horizon.
     """
     benchmarks = load_dgca_reference_dataset()
     corridor = f"{origin.strip().upper()}-{destination.strip().upper()}"
     
     data = benchmarks.get(corridor)
     if not data:
-        # Fallback default calculation
         base_val = 4500.0
         multiplier = {1: 1.35, 7: 1.00, 15: 0.92, 30: 0.85, 45: 0.80}.get(horizon_days, 1.00)
         return round(base_val * multiplier, 2)
@@ -114,14 +114,14 @@ def get_dgca_fare_benchmark(origin: str, destination: str, horizon_days: int) ->
 
 def get_dgca_weighted_baseline_index() -> float:
     """
-    Computes national composite DGCA weighted baseline tariff (Base = 100.0).
+    Returns national composite baseline index (Base = 100.0).
     """
     return 100.0
 
 
 def load_mospi_cpi_transport_dataset() -> List[Dict[str, Any]]:
     """
-    Loads and parses the official MoSPI eSankhyiki CPI Transport Sub-Group monthly index series from CSV.
+    Loads and parses the illustrative MoSPI CPI Transport Sub-Group monthly index series from CSV.
     """
     global _MOSPI_BENCHMARKS_CACHE
     if _MOSPI_BENCHMARKS_CACHE is not None:
@@ -143,7 +143,7 @@ def load_mospi_cpi_transport_dataset() -> List[Dict[str, Any]]:
                     "cpi_transport_index": float(row.get("cpi_transport_index", 100.0)),
                     "cpi_all_groups_index": float(row.get("cpi_all_groups_index", 100.0)),
                     "air_transport_isp_growth_pct": float(row.get("air_transport_isp_growth_pct", 0.0)),
-                    "data_source": row.get("data_source", "MoSPI eSankhyiki Portal"),
+                    "data_source": row.get("data_source", "MoSPI eSankhyiki Re-indexed Series"),
                 })
         _MOSPI_BENCHMARKS_CACHE = records
         logger.info(f"[MOSPI_REFERENCE] Loaded {len(records)} monthly records from {MOSPI_CSV_PATH.name}")
