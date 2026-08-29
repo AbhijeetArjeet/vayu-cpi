@@ -573,3 +573,122 @@ def test_dataset_registry_endpoints():
     assert len(data) > 0
     assert "source_type" in data[0]
     assert "dataset_version" in data[0]
+
+
+# 19. Airfare Index Period 1 Day (24 Hours)
+def test_airfare_index_period_1_day():
+    from services.api.main import app
+    from fastapi.testclient import TestClient
+    init_db()
+    client = TestClient(app)
+    res = client.get("/api/v1/cpi/airfare-index?mode=combined&period_days=1")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["period_days"] == 1
+    assert "observation_window_start" in data
+    assert "observation_window_end" in data
+    assert data["status"] in ("SUCCESS", "INSUFFICIENT_DATA")
+
+
+# 20. Airfare Index Period 7 Days
+def test_airfare_index_period_7_days():
+    from services.api.main import app
+    from fastapi.testclient import TestClient
+    init_db()
+    client = TestClient(app)
+    res = client.get("/api/v1/cpi/airfare-index?mode=combined&period_days=7")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["period_days"] == 7
+    assert data["status"] in ("SUCCESS", "INSUFFICIENT_DATA")
+
+
+# 21. Airfare Index Period 30 Days
+def test_airfare_index_period_30_days():
+    from services.api.main import app
+    from fastapi.testclient import TestClient
+    init_db()
+    client = TestClient(app)
+    res = client.get("/api/v1/cpi/airfare-index?mode=combined&period_days=30")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["period_days"] == 30
+    assert data["status"] in ("SUCCESS", "INSUFFICIENT_DATA")
+
+
+# 22. Airfare Index Period 90 Days
+def test_airfare_index_period_90_days():
+    from services.api.main import app
+    from fastapi.testclient import TestClient
+    init_db()
+    client = TestClient(app)
+    res = client.get("/api/v1/cpi/airfare-index?mode=combined&period_days=90")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["period_days"] == 90
+    assert data["status"] in ("SUCCESS", "INSUFFICIENT_DATA")
+
+
+# 23. Airfare Index Period 365 Days (1 Year)
+def test_airfare_index_period_365_days():
+    from services.api.main import app
+    from fastapi.testclient import TestClient
+    init_db()
+    client = TestClient(app)
+    res = client.get("/api/v1/cpi/airfare-index?mode=combined&period_days=365")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["period_days"] == 365
+    assert data["status"] in ("SUCCESS", "INSUFFICIENT_DATA")
+
+
+# 24. Invalid Analysis Period Rejection (400)
+def test_invalid_analysis_period():
+    from services.api.main import app
+    from fastapi.testclient import TestClient
+    init_db()
+    client = TestClient(app)
+    # 45 is not in allowed list [1, 7, 30, 90, 365]
+    res = client.get("/api/v1/cpi/airfare-index?mode=live&period_days=45")
+    assert res.status_code == 400
+    assert "Invalid period_days" in res.json()["detail"]
+
+    # Negative period
+    res_neg = client.get("/api/v1/cpi/airfare-index?mode=live&period_days=-5")
+    assert res_neg.status_code == 400
+
+
+# 25. Insufficient Period Data Handling
+def test_insufficient_period_data():
+    from services.engine.index_calculator import compute_national_composite_cpi
+    # When querying a mode with 0 observations in the window, must return INSUFFICIENT_DATA status gracefully
+    # Query with target_date in the far future (2035) where no observations exist
+    fut_date = date(2035, 1, 1)
+    res = compute_national_composite_cpi(calculation_date=fut_date, mode="live", period_days=1)
+    assert res.status == "INSUFFICIENT_DATA"
+    assert res.total_observations == 0
+    assert res.composite_index == 100.0
+
+
+# 26. Timezone Period Filtering (Asia/Kolkata)
+def test_timezone_period_filtering():
+    from core.timezone import now_ist, IST
+    from datetime import datetime, timedelta
+    now_dt = now_ist()
+    assert now_dt.tzinfo == IST
+    # 24 hour window
+    win_start_1d = now_dt - timedelta(days=1)
+    assert (now_dt - win_start_1d).total_seconds() == 86400
+
+
+# 27. Frontend API Period Parameter
+def test_frontend_api_period_parameter():
+    from services.api.main import app
+    from fastapi.testclient import TestClient
+    init_db()
+    client = TestClient(app)
+    # Test routes/all-current with period_days
+    res = client.get("/api/v1/cpi/routes/all-current?mode=combined&period_days=7")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["period_days"] == 7

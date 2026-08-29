@@ -379,7 +379,7 @@ def fetch_observations(
     until=None,
     mode: str = "live",  # live, historical, combined
 ) -> list[FareObservation]:
-    """Fetches raw observations for one route+horizon respecting data mode."""
+    """Fetches raw observations for one route+horizon respecting data mode and time window."""
     session = SessionLocal()
     try:
         q = session.query(FareObservation).filter(
@@ -401,16 +401,6 @@ def fetch_observations(
             q = q.filter(FareObservation.scraped_at <= until_str)
             
         res = q.order_by(FareObservation.scraped_at.asc()).all()
-        # Fallback for live mode if live DB is currently sparse: allow historical observation if strictly empty
-        if not res and mode == "live":
-            q_fallback = session.query(FareObservation).filter(
-                FareObservation.origin == origin,
-                FareObservation.destination == destination,
-                FareObservation.horizon_days == horizon_days,
-                FareObservation.availability_status == "AVAILABLE",
-            )
-            res = q_fallback.order_by(FareObservation.scraped_at.desc()).limit(15).all()
-
         return res
     finally:
         session.close()
@@ -422,9 +412,13 @@ def fetch_all_observations(
     destination: Optional[str] = None,
     carrier: Optional[str] = None,
     booking_window: Optional[str] = None,
-    limit: int = 1500,
+    since=None,
+    until=None,
+    period_days: Optional[int] = None,
+    limit: int = 5000,
 ) -> list[FareObservation]:
-    """Fetches filtered fare observations."""
+    """Fetches filtered fare observations respecting date bounds and analysis period."""
+    from core.timezone import now_ist
     session = SessionLocal()
     try:
         q = session.query(FareObservation)
@@ -441,6 +435,18 @@ def fetch_all_observations(
             q = q.filter((FareObservation.carrier == carrier) | (FareObservation.carrier_code == carrier.upper()))
         if booking_window:
             q = q.filter(FareObservation.booking_window == booking_window.upper())
+
+        # Date window filtering
+        if since is not None:
+            since_str = since.isoformat() if hasattr(since, 'isoformat') else str(since)
+            q = q.filter(FareObservation.scraped_at >= since_str)
+        elif period_days is not None:
+            since_dt = now_ist() - timedelta(days=period_days)
+            q = q.filter(FareObservation.scraped_at >= since_dt.isoformat())
+
+        if until is not None:
+            until_str = until.isoformat() if hasattr(until, 'isoformat') else str(until)
+            q = q.filter(FareObservation.scraped_at <= until_str)
 
         return q.order_by(FareObservation.id.desc()).limit(limit).all()
     finally:

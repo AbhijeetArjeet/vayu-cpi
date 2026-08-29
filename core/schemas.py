@@ -77,6 +77,7 @@ class RouteJevonsIndex(BaseModel):
     jevons_index: float  # (current / base) * 100
     sample_size: int
     data_mode: str = "live"  # live, historical, combined
+    period_days: int = 30
 
 
 class CarrierIndex(BaseModel):
@@ -110,6 +111,13 @@ class NationalCompositeCPI(BaseModel):
     dgca_traffic_coverage_pct: float
     data_mode: str = "live"  # live, historical, combined
     source_label: str = "LIVE OBSERVATIONS"
+
+    # Analysis window & provenance metadata
+    period_days: int = 30
+    observation_window_start: Optional[str] = None
+    observation_window_end: Optional[str] = None
+    status: str = "SUCCESS"  # SUCCESS, INSUFFICIENT_DATA
+    minimum_required: Optional[int] = 1
 
 
 class BacktestMetric(BaseModel):

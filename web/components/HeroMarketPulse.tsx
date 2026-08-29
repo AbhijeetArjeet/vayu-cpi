@@ -10,17 +10,29 @@ interface HeroMarketPulseProps {
   cpiData: NationalCompositeCPI | null;
   alerts: SurgeAlert[];
   observationCount?: number;
+  dateRangeDays?: number;
 }
 
 export default function HeroMarketPulse({
   cpiData,
   alerts,
   observationCount = 0,
+  dateRangeDays = 30,
 }: HeroMarketPulseProps) {
   const { selectedCorridor, setSelectedCorridor, demoMode } = useVayuTheme();
 
+  const periodLabelMap: Record<number, string> = {
+    1: "24 HOURS",
+    7: "7 DAYS",
+    30: "30 DAYS",
+    90: "90 DAYS",
+    365: "1 YEAR",
+  };
+  const periodLabel = periodLabelMap[dateRangeDays] || `${dateRangeDays} DAYS`;
+
   // Production Values derived from backend API / CPI calculation engine
-  const hasLiveObs = Boolean(cpiData && cpiData.tracked_corridors > 0);
+  const isInsufficient = cpiData?.status === "INSUFFICIENT_DATA" || (cpiData?.total_observations === 0 && !demoMode);
+  const hasLiveObs = Boolean(cpiData && (cpiData.total_observations ?? 0) > 0 && !isInsufficient);
   const compositeVal = demoMode ? 161.78 : (cpiData?.composite_index ?? 100.0);
   const advanceVal = demoMode ? 145.20 : (cpiData?.advance_sub_index ?? 100.0);
   const spotVal = demoMode ? 182.40 : (cpiData?.spot_sub_index ?? 100.0);
@@ -31,6 +43,9 @@ export default function HeroMarketPulse({
   // Calculate 30D Change from Base (100)
   const cpiDeltaPct = Number((((compositeVal - 100) / 100) * 100).toFixed(1));
 
+  const obsWindowText = cpiData?.observation_window_start && cpiData?.observation_window_end
+    ? `Observation window: ${cpiData.observation_window_start} → ${cpiData.observation_window_end}`
+    : `Analysis window: Last ${periodLabel}`;
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950/40 p-6 md:p-8 text-white shadow-2xl">
@@ -42,8 +57,13 @@ export default function HeroMarketPulse({
           <div className="flex items-center gap-3">
             <span className="text-xl">🇮🇳</span>
             <div>
-              <h2 className="font-bold text-lg text-slate-100 tracking-tight flex items-center gap-2">
-                INDIAN AIRFARE MARKET PULSE
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-bold text-lg text-slate-100 tracking-tight flex items-center gap-2">
+                  INDIAN AIRFARE MARKET PULSE
+                </h2>
+                <span className="px-2.5 py-0.5 text-xs font-mono font-bold bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-full">
+                  ANALYSIS PERIOD: {periodLabel}
+                </span>
                 {demoMode && (
                   <span className="px-2 py-0.5 text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded">
                     DEMO SIMULATION
@@ -54,9 +74,9 @@ export default function HeroMarketPulse({
                     FILTERED: {selectedCorridor}
                   </span>
                 )}
-              </h2>
-              <p className="text-xs text-slate-400">
-                Official MoSPI Macroeconomic Inflation Engine & DGCA Anomaly Matrix (Base 2024 = 100)
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Official MoSPI Macroeconomic Inflation Engine & DGCA Anomaly Matrix (Base 2024 = 100) • <span className="text-slate-300 font-mono">{obsWindowText}</span>
               </p>
             </div>
           </div>
@@ -71,12 +91,22 @@ export default function HeroMarketPulse({
           )}
         </div>
 
+        {/* Insufficient Data Warning Banner */}
+        {isInsufficient && !demoMode && (
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono text-xs flex items-center gap-2.5">
+            <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
+            <span>
+              <strong>INSUFFICIENT LIVE DATA:</strong> Insufficient live observations recorded in the selected {periodLabel} window ({cpiData?.total_observations ?? 0} found, minimum 1 required).
+            </span>
+          </div>
+        )}
+
         {/* Main Stats Layout */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           {/* Main CPI Gauge */}
           <div className="space-y-2">
             <span className="text-xs font-mono font-semibold tracking-wider text-slate-400 uppercase">
-              National Airfare CPI
+              National Airfare CPI ({periodLabel})
             </span>
             <div className="flex items-baseline gap-3">
               <AnimatedNumber
@@ -86,7 +116,7 @@ export default function HeroMarketPulse({
               />
               {!hasLiveObs && !demoMode ? (
                 <div className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border text-amber-400 bg-amber-500/10 border-amber-500/20">
-                  <span>BASELINE / NO LIVE DATA</span>
+                  <span>INSUFFICIENT OBSERVATIONS</span>
                 </div>
               ) : (
                 <div

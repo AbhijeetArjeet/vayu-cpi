@@ -18,6 +18,11 @@ export interface NationalCompositeCPI {
   dgca_traffic_coverage_pct: number;
   data_mode?: DataMode;
   source_label?: string;
+  period_days?: number;
+  observation_window_start?: string;
+  observation_window_end?: string;
+  status?: string;
+  minimum_required?: number;
 }
 
 export interface CarrierIndex {
@@ -80,6 +85,7 @@ export interface RouteJevonsIndex {
   jevons_index: number;
   sample_size: number;
   data_mode?: DataMode;
+  period_days?: number;
 }
 
 export interface RouteConcentration {
@@ -207,9 +213,9 @@ export const checkBackendHealth = async (): Promise<'ONLINE' | 'DEGRADED' | 'OFF
   }
 };
 
-export const fetchAirfareIndex = async (mode: DataMode = 'live'): Promise<NationalCompositeCPI | null> => {
+export const fetchAirfareIndex = async (mode: DataMode = 'live', period_days: number = 30): Promise<NationalCompositeCPI | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/cpi/airfare-index?mode=${mode}`);
+    const response = await axios.get(`${getApiBaseUrl()}/api/v1/cpi/airfare-index?mode=${mode}&period_days=${period_days}`);
     return response.data;
   } catch (error) {
     console.error("[API_ERROR] fetchAirfareIndex failed:", error);
@@ -219,7 +225,7 @@ export const fetchAirfareIndex = async (mode: DataMode = 'live'): Promise<Nation
 
 export const fetchAirfareIndexSeries = async (days_back: number = 30, mode: DataMode = 'live'): Promise<NationalCompositeCPI[]> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/cpi/airfare-index/series?days_back=${days_back}&mode=${mode}`);
+    const response = await axios.get(`${getApiBaseUrl()}/api/v1/cpi/airfare-index/series?days_back=${days_back}&mode=${mode}`);
     const data = response.data;
     if (Array.isArray(data)) return data;
     return [];
@@ -231,7 +237,7 @@ export const fetchAirfareIndexSeries = async (days_back: number = 30, mode: Data
 
 export const fetchCarriers = async (mode: DataMode = 'combined'): Promise<CarrierIndex[]> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/carriers?mode=${mode}`);
+    const response = await axios.get(`${getApiBaseUrl()}/carriers?mode=${mode}`);
     if (Array.isArray(response.data)) return response.data;
     return [];
   } catch (err) {
@@ -242,7 +248,7 @@ export const fetchCarriers = async (mode: DataMode = 'combined'): Promise<Carrie
 
 export const fetchBacktestResults = async (mode: string = 'historical'): Promise<BacktestResult | null> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/backtest?mode=${mode}`);
+    const response = await axios.get(`${getApiBaseUrl()}/backtest?mode=${mode}`);
     return response.data;
   } catch (err) {
     console.error("[API_ERROR] fetchBacktestResults failed:", err);
@@ -252,7 +258,7 @@ export const fetchBacktestResults = async (mode: string = 'historical'): Promise
 
 export const fetchSurgeAlerts = async (): Promise<SurgeAlert[]> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/dgca/surge-alerts`);
+    const response = await axios.get(`${getApiBaseUrl()}/api/v1/dgca/surge-alerts`);
     const data = response.data;
     if (Array.isArray(data)) return data;
     if (data && Array.isArray(data.alerts)) return data.alerts;
@@ -265,7 +271,7 @@ export const fetchSurgeAlerts = async (): Promise<SurgeAlert[]> => {
 
 export const fetchFeeDecomposition = async (): Promise<FeeDecomposition[]> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/dgca/decomposition`);
+    const response = await axios.get(`${getApiBaseUrl()}/api/v1/dgca/decomposition`);
     const data = response.data;
     if (Array.isArray(data)) return data;
     if (data && Array.isArray(data.results)) return data.results;
@@ -276,9 +282,9 @@ export const fetchFeeDecomposition = async (): Promise<FeeDecomposition[]> => {
   }
 };
 
-export const fetchAllRoutesCurrent = async (mode: DataMode = 'live'): Promise<{ count: number; routes: RouteJevonsIndex[] }> => {
+export const fetchAllRoutesCurrent = async (mode: DataMode = 'live', period_days: number = 30): Promise<{ count: number; routes: RouteJevonsIndex[] }> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/v1/cpi/routes/all-current?mode=${mode}`);
+    const response = await axios.get(`${getApiBaseUrl()}/api/v1/cpi/routes/all-current?mode=${mode}&period_days=${period_days}`);
     const data = response.data;
     if (data && Array.isArray(data.routes)) return data;
     return { count: 0, routes: [] };

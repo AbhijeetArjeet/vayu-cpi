@@ -58,9 +58,9 @@ function CommandCenterContent() {
       setError(false);
       try {
         const [cpi, alertList, routeData, conc, cov] = await Promise.all([
-          fetchAirfareIndex(dataMode),
+          fetchAirfareIndex(dataMode, dateRangeDays),
           fetchSurgeAlerts(),
-          fetchAllRoutesCurrent(dataMode),
+          fetchAllRoutesCurrent(dataMode, dateRangeDays),
           fetchRouteConcentration(),
           fetchMarketCoverage(),
         ]);
@@ -164,7 +164,7 @@ function CommandCenterContent() {
       )}
 
       {/* 4. Hero Market Pulse Section */}
-      <HeroMarketPulse cpiData={cpiData} alerts={alerts} observationCount={obsCount} />
+      <HeroMarketPulse cpiData={cpiData} alerts={alerts} observationCount={obsCount} dateRangeDays={dateRangeDays} />
 
       {/* 5. Top Movers (Rising & Falling) */}
       <TopMovers routes={routes} onSelectCorridor={(c) => { setSelectedCorridor(c); setDrawerRoute(c); }} />

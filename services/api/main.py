@@ -306,8 +306,17 @@ def api_v1_fares(
     return list_fares(origin=origin, destination=destination, carrier=carrier, booking_window=booking_window, mode=mode, limit=limit)
 
 @app.get("/api/v1/index", response_model=NationalCompositeCPI, tags=["Econometric Index"])
-def api_v1_index(target_date: Optional[date] = None, mode: str = "live"):
-    return compute_national_composite_cpi(target_date, mode=mode)
+def api_v1_index(
+    target_date: Optional[date] = None,
+    mode: str = "live",
+    period_days: int = Query(30, description="Analysis window in days: 1, 7, 30, 90, 365"),
+):
+    if period_days not in (1, 7, 30, 90, 365):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid period_days '{period_days}'. Allowed values: 1, 7, 30, 90, 365."
+        )
+    return compute_national_composite_cpi(target_date, mode=mode, period_days=period_days)
 
 
 # --- Startup & Shutdown ---
