@@ -199,7 +199,7 @@ export const getApiBaseUrl = (): string => {
       return envUrl;
     }
   }
-  return 'https://web-production-e5a43.up.railway.app';
+  return 'https://web-production-3741e.up.railway.app';
 };
 
 const API_BASE_URL = getApiBaseUrl();

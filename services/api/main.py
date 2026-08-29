@@ -370,9 +370,6 @@ def _start_background_scheduler() -> None:
         )
         _scheduler.start()
         _logger.info("Background scheduler started (every 6 hours)")
-
-        import threading
-        threading.Thread(target=run_ingestion_sweep, daemon=True).start()
     except Exception as e:
         _logger.warning(f"Background scheduler not started: {e}")
 
