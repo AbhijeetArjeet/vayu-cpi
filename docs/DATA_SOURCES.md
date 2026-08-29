@@ -43,6 +43,15 @@ VAYU-CPI maintains strict provenance tracking across all data inputs.
 - **Authentication**: Configured via `SECONDARY_FARE_API_KEY` environment variable. Fails closed (returns `[]`) if key is absent.
 - **Free Tier Guardrails**: Conservative 3.0s delay between requests; daily quota budget capped at 20 calls/day (`SECONDARY_FARE_API_DAILY_LIMIT`) to preserve free-tier request limits.
 
+### 2c. Skyscanner Cross-Validation Feed: Aggregated Market API (RapidAPI Wrapper)
+- **Connector**: `services/ingestion/connectors/skyscanner_connector.py` (`SkyscannerConnector`)
+- **Status**: 🔄 **ACTIVE — Independent Skyscanner Benchmark Feed**
+- **Role**: Secondary cross-validation benchmark to evaluate price consistency against Google Flights and other OTAs. Not blended into primary index to protect index methodology integrity.
+- **Method**: Legitimate RapidAPI wrapper (`sky-scrapper.p.rapidapi.com` / Skyscanner listing on RapidAPI) accessing Skyscanner's aggregated flight search results.
+- **Authentication**: Configured via `SKYSCANNER_API_KEY` or `RAPIDAPI_KEY` environment variable. Fails closed (returns `[]`) if key is absent.
+- **Provenance Tagging**: `portal = "Skyscanner (via RapidAPI)"`, `source = "Skyscanner Aggregated Feed"`, `source_type = "LIVE_FLIGHT"`, `is_ota_direct = False`.
+- **Free Tier Guardrails**: Conservative 3.0s delay between calls; daily limit capped at 10 calls/day (`SKYSCANNER_API_DAILY_LIMIT`) to avoid exceeding RapidAPI free-tier quota (50–100 calls/month).
+
 ---
 
 ## 3. Per-Source Status Table

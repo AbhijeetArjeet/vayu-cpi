@@ -692,3 +692,117 @@ def test_frontend_api_period_parameter():
     assert res.status_code == 200
     data = res.json()
     assert data["period_days"] == 7
+
+
+# 28. Skyscanner Connector Fail-Closed Without Key
+def test_skyscanner_connector_fail_closed_without_key(monkeypatch):
+    from services.ingestion.connectors.skyscanner_connector import SkyscannerConnector
+    monkeypatch.delenv("SKYSCANNER_API_KEY", raising=False)
+    monkeypatch.delenv("RAPIDAPI_KEY", raising=False)
+
+    connector = SkyscannerConnector()
+    assert connector.api_key == ""
+    quotes = connector.fetch_quotes("DEL", "BOM", 7)
+    assert quotes == []
+    quota = connector.get_quota_status()
+    assert quota["is_configured"] is False
+    assert quota["today_used"] == 0
+
+
+# 29. Skyscanner Connector Quota Tracking
+def test_skyscanner_connector_quota_tracking(monkeypatch):
+    from services.ingestion.connectors.skyscanner_connector import SkyscannerConnector
+    monkeypatch.setenv("SKYSCANNER_API_KEY", "test_mock_key")
+    monkeypatch.setenv("SKYSCANNER_API_DAILY_LIMIT", "2")
+
+    connector = SkyscannerConnector()
+    assert connector.api_key == "test_mock_key"
+    assert connector._can_make_request_today() is True
+
+    connector._record_request_today()
+    connector._record_request_today()
+    assert connector._can_make_request_today() is False
+
+    status = connector.get_quota_status()
+    assert status["today_used"] == 2
+    assert status["remaining"] == 0
+
+
+# 30. Skyscanner Connector Registry
+def test_skyscanner_connector_registry():
+    from services.ingestion.connectors import get_connector, SkyscannerConnector
+    conn = get_connector("SKYSCANNER")
+    assert isinstance(conn, SkyscannerConnector)
+    assert conn.carrier_code == "SKYSCANNER"
+    assert conn.is_ota is True
+
+
+# 31. Skyscanner Cross-Validation Report Integration
+def test_skyscanner_cross_validation_report_integration():
+    from services.engine.cross_validation import compute_cross_validation_report
+    from services.persistence.db import save_fare_records_with_diagnostics
+    from core.schemas import RawFareRecord
+
+    # Insert a primary Google Flights observation and a Skyscanner observation for DEL-BOM T+7
+    primary_rec = RawFareRecord(
+        portal="Google Flights",
+        source="Google Flights Live Feed",
+        carrier="IndiGo",
+        carrier_name="IndiGo",
+        carrier_code="6E",
+        flight_number="6E-101",
+        origin="DEL",
+        destination="BOM",
+        departure_date="2026-09-05",
+        departure_time="2026-09-05 10:00:00",
+        scraped_at="2026-08-29T12:00:00",
+        horizon_days=7,
+        booking_window="T+7",
+        base_fare=4500.0,
+        taxes=1500.0,
+        fuel_surcharge_yq=600.0,
+        airport_fee_udf=650.0,
+        convenience_fee=300.0,
+        total_fare=6000.0,
+        currency="INR",
+        availability_status="AVAILABLE",
+        is_modeled=False,
+        is_live=True,
+    )
+
+    skyscanner_rec = RawFareRecord(
+        portal="Skyscanner (via RapidAPI)",
+        source="Skyscanner Aggregated Feed",
+        carrier="IndiGo",
+        carrier_name="IndiGo",
+        carrier_code="6E",
+        flight_number="SKYS-101",
+        origin="DEL",
+        destination="BOM",
+        departure_date="2026-09-05",
+        departure_time="2026-09-05 12:00:00",
+        scraped_at="2026-08-29T12:05:00",
+        horizon_days=7,
+        booking_window="T+7",
+        base_fare=4650.0,
+        taxes=1550.0,
+        fuel_surcharge_yq=600.0,
+        airport_fee_udf=650.0,
+        convenience_fee=300.0,
+        total_fare=6200.0,
+        currency="INR",
+        availability_status="AVAILABLE",
+        is_modeled=True,
+        is_live=True,
+        is_ota_direct=False,
+    )
+
+    save_fare_records_with_diagnostics([primary_rec, skyscanner_rec])
+
+    report = compute_cross_validation_report(origin="DEL", destination="BOM")
+    assert report["status"] == "VALIDATED"
+    assert report["total_comparisons"] >= 1
+    assert "source_breakdown" in report
+    assert "Skyscanner (RapidAPI)" in report["source_breakdown"]
+    assert report["source_breakdown"]["Skyscanner (RapidAPI)"]["comparisons"] >= 1
+

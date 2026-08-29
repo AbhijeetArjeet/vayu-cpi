@@ -17,6 +17,7 @@ from services.ingestion.connectors.makemytrip_connector import MakeMyTripConnect
 from services.ingestion.connectors.easemytrip_connector import EaseMyTripConnector
 from services.ingestion.connectors.cleartrip_connector import CleartripConnector
 from services.ingestion.connectors.secondary_fare_api_connector import SecondaryFareAPIConnector
+from services.ingestion.connectors.skyscanner_connector import SkyscannerConnector
 from services.ingestion.connectors.simulated_connector import SimulatedReferenceConnector
 
 CONNECTOR_REGISTRY: Dict[str, Type[BaseConnector]] = {
@@ -43,6 +44,8 @@ CONNECTOR_REGISTRY: Dict[str, Type[BaseConnector]] = {
     "CLEARTRIP": CleartripConnector,
     "SECONDARY_API": SecondaryFareAPIConnector,
     "RAPIDAPI": SecondaryFareAPIConnector,
+    "SKYSCANNER": SkyscannerConnector,
+    "SKY_SCRAPPER": SkyscannerConnector,
     
     # Testing & Calibration
     "SIMULATED": SimulatedReferenceConnector,
@@ -66,6 +69,7 @@ __all__ = [
     "EaseMyTripConnector",
     "CleartripConnector",
     "SecondaryFareAPIConnector",
+    "SkyscannerConnector",
     "SimulatedReferenceConnector",
     "CONNECTOR_REGISTRY",
     "get_connector",
