@@ -13,6 +13,12 @@ import urllib.request
 import urllib.error
 from typing import Dict, Any, List, Optional, Tuple
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
 logger = logging.getLogger("vayu-cpi.ai")
 
 SYSTEM_GROUNDING_PROMPT = """You are VAYU AI Analyst, the official intelligence assistant for the National Airfare Price Index (VAYU-CPI) developed for MoSPI and DGCA.
