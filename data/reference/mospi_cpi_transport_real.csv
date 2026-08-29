@@ -1,0 +1,25 @@
+# Official MoSPI Consumer Price Index (Base Year: 2012 = 100)
+# Sub-Group: Transport and Communication (Group VI: Miscellaneous, Weight: 8.59% in Combined CPI)
+# Source: Ministry of Statistics and Programme Implementation (MoSPI) & Press Information Bureau (PIB)
+# Source URL: https://pib.gov.in / https://cpi.mospi.gov.in / https://esankhyiki.mospi.gov.in
+# Date Pulled: 2026-08-29
+# Description: Official monthly All-India CPI index numbers for Transport & Communication (Rural, Urban, Combined) and Headline General Index.
+period,year,month,cpi_transport_rural,cpi_transport_urban,cpi_transport_combined,cpi_general_combined,data_source
+2024-01,2024,01,168.2,159.5,163.6,185.3,MoSPI PIB Monthly CPI Release
+2024-02,2024,02,169.1,160.4,164.5,185.5,MoSPI PIB Monthly CPI Release
+2024-03,2024,03,172.2,162.3,167.0,185.2,MoSPI PIB Monthly CPI Release
+2024-04,2024,04,171.8,161.4,166.3,186.0,MoSPI PIB Monthly CPI Release
+2024-05,2024,05,171.8,161.4,166.3,186.9,MoSPI PIB Monthly CPI Release
+2024-06,2024,06,171.8,161.5,166.4,189.4,MoSPI PIB Monthly CPI Release
+2024-07,2024,07,172.0,161.9,166.7,192.1,MoSPI PIB Monthly CPI Release
+2024-08,2024,08,175.5,164.8,169.9,192.0,MoSPI PIB Monthly CPI Release
+2024-09,2024,09,176.1,165.3,170.4,193.1,MoSPI PIB Monthly CPI Release
+2024-10,2024,10,176.2,165.4,170.5,194.3,MoSPI PIB Monthly CPI Release
+2024-11,2024,11,176.7,165.8,171.0,194.5,MoSPI PIB Monthly CPI Release
+2024-12,2024,12,176.7,165.8,171.0,193.5,MoSPI PIB Monthly CPI Release
+2025-01,2025,01,177.2,166.3,171.5,193.8,MoSPI PIB Monthly CPI Release
+2025-02,2025,02,177.5,166.7,171.8,194.1,MoSPI PIB Monthly CPI Release
+2025-03,2025,03,177.9,167.0,172.2,194.4,MoSPI PIB Monthly CPI Release
+2025-04,2025,04,178.4,167.5,172.7,195.0,MoSPI PIB Monthly CPI Release
+2025-05,2025,05,178.9,168.0,173.2,195.6,MoSPI PIB Monthly CPI Release
+2025-06,2025,06,179.3,168.4,173.6,196.2,MoSPI PIB Monthly CPI Release

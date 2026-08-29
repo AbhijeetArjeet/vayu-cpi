@@ -378,6 +378,11 @@ def test_fastapi_all_sih_endpoints():
     assert res.status_code == 200
     assert "status" in res.json()
 
+    # 12. /mospi-comparison
+    res = client.get("/mospi-comparison")
+    assert res.status_code == 200
+    assert res.json()["status"] == "OFFICIAL_DATA_LOADED"
+
 
 # 10. Sweep Continuation Fail-soft
 def test_scheduler_continuation(monkeypatch):
@@ -416,3 +421,21 @@ def test_cross_validation_report_calculation():
     rep = compute_cross_validation_report()
     assert "status" in rep
     assert "validation_status" in rep
+
+
+# 12. Real MoSPI Dataset & Comparison
+def test_mospi_real_dataset_and_comparison():
+    from services.engine.dgca_reference_data import (
+        load_mospi_cpi_transport_real,
+        compute_mospi_trend_comparison,
+    )
+    real_records = load_mospi_cpi_transport_real()
+    assert len(real_records) > 0
+    assert real_records[0]["cpi_transport_combined"] > 0.0
+    assert real_records[0]["base_year"] == "2012=100"
+
+    comp = compute_mospi_trend_comparison()
+    assert comp["status"] == "OFFICIAL_DATA_LOADED"
+    assert comp["total_months"] > 0
+    assert comp["base_period_original"] == "2012 = 100.0"
+    assert len(comp["series"]) == len(real_records)

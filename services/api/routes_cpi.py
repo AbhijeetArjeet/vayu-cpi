@@ -243,3 +243,13 @@ def export_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=vayu_cpi_export_{mode}.csv"},
     )
+
+
+@router.get("/mospi-comparison")
+def get_mospi_comparison():
+    """
+    Returns macroeconomic trend comparison against MoSPI's official published CPI
+    Transport & Communication series (Base 2012=100) rebased to Jan 2024=100.
+    """
+    from services.engine.dgca_reference_data import compute_mospi_trend_comparison
+    return compute_mospi_trend_comparison()

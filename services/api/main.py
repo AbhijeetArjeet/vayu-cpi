@@ -267,6 +267,11 @@ def get_cross_validation(
     from services.engine.cross_validation import compute_cross_validation_report
     return compute_cross_validation_report(origin=origin, destination=destination)
 
+@app.get("/mospi-comparison", tags=["Econometric Validation"])
+def get_mospi_comparison():
+    from services.engine.dgca_reference_data import compute_mospi_trend_comparison
+    return compute_mospi_trend_comparison()
+
 @app.get("/api/v1/routes", tags=["Core Aviation Data"])
 def api_v1_routes() -> dict:
     return list_routes()

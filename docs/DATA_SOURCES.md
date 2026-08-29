@@ -6,10 +6,12 @@ VAYU-CPI maintains strict provenance tracking across all data inputs.
 
 ## 1. Official Reference Sources
 
-### MoSPI e-Sankhyiki Portal
-- **URL**: https://esankhyiki.mospi.gov.in/
-- **Role in Project**: Primary macroeconomic benchmark and CPI transport commodity basket reference.
-- **Usage**: Reference weights for transport sub-group indexing and base-year comparison standards.
+### MoSPI e-Sankhyiki Portal & PIB CPI Releases
+- **URL**: https://esankhyiki.mospi.gov.in / https://cpi.mospi.gov.in / https://pib.gov.in
+- **Role in Project**: Official macroeconomic benchmark for transport services inflation and national CPI releases.
+- **Real Published Dataset**: `data/reference/mospi_cpi_transport_real.csv` (Official MoSPI Base 2012=100 monthly CPI for Transport & Communication, Rural, Urban, Combined).
+- **Illustrative Re-indexed Dataset**: `data/reference/mospi_cpi_transport_reference.csv` (Re-indexed to Base 2024=100 for prototype UI chart continuity).
+- **Usage**: Used for high-level macroeconomic trend benchmarking (`/mospi-comparison`) with transparent rebasing from Base 2012 to Jan 2024 = 100.0.
 
 ### Directorate General of Civil Aviation (DGCA) & Ministry of Civil Aviation (MoCA)
 - **URL**: https://www.dgca.gov.in/
