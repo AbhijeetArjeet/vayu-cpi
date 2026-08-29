@@ -423,11 +423,22 @@ function CommandCenterContent() {
           </Link>
 
           <Link
+            href="/ai"
+            className="p-4 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 transition group space-y-1 block"
+          >
+            <div className="flex items-center justify-between text-cyan-400 font-bold">
+              <span>3. AI ANALYST</span>
+              <span className="group-hover:translate-x-0.5 transition">→</span>
+            </div>
+            <p className="text-slate-400 text-[11px]">Grounded natural language</p>
+          </Link>
+
+          <Link
             href="/explainer"
             className="p-4 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-blue-500/40 transition group space-y-1 block"
           >
             <div className="flex items-center justify-between text-blue-400 font-bold">
-              <span>3. EXPLAINER</span>
+              <span>4. EXPLAINER</span>
               <span className="group-hover:translate-x-0.5 transition">→</span>
             </div>
             <p className="text-slate-400 text-[11px]">Attribution waterfall</p>
@@ -438,7 +449,7 @@ function CommandCenterContent() {
             className="p-4 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-rose-500/40 transition group space-y-1 block"
           >
             <div className="flex items-center justify-between text-rose-400 font-bold">
-              <span>4. SHOCKS</span>
+              <span>5. SHOCKS</span>
               <span className="group-hover:translate-x-0.5 transition">→</span>
             </div>
             <p className="text-slate-400 text-[11px]">3-Sigma surge detector</p>
@@ -449,22 +460,53 @@ function CommandCenterContent() {
             className="p-4 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/40 transition group space-y-1 block"
           >
             <div className="flex items-center justify-between text-purple-400 font-bold">
-              <span>5. POLICY LAB</span>
+              <span>6. POLICY LAB</span>
               <span className="group-hover:translate-x-0.5 transition">→</span>
             </div>
             <p className="text-slate-400 text-[11px]">What-If CPI simulator</p>
           </Link>
+        </div>
+      </div>
 
-          <Link
-            href="/provenance"
-            className="p-4 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 transition group space-y-1 block"
-          >
-            <div className="flex items-center justify-between text-amber-400 font-bold">
-              <span>6. AUDIT TREE</span>
-              <span className="group-hover:translate-x-0.5 transition">→</span>
+      {/* 6. HOW VAYU WORKS PIPELINE (DATA ➔ STATISTICS ➔ ML ➔ AI ➔ DECISION) */}
+      <div className="p-6 sm:p-8 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400">
+              The End-to-End Intelligence Pipeline
             </div>
-            <p className="text-slate-400 text-[11px]">100% Provenance trace</p>
+            <h3 className="text-lg font-bold text-white mt-0.5">How VAYU Works: From Data to Decision</h3>
+          </div>
+          <Link href="/about-vayu" className="text-xs font-bold text-cyan-400 hover:text-cyan-300">
+            Full Architecture ➔
           </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-1">
+            <div className="font-extrabold text-cyan-400">1. DATA</div>
+            <div className="text-[11px] text-slate-300">Multi-carrier TLS socket scraping</div>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-1">
+            <div className="font-extrabold text-blue-400">2. STATISTICS</div>
+            <div className="text-[11px] text-slate-300">Jevons geometric mean aggregation</div>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-1">
+            <div className="font-extrabold text-indigo-400">3. WEEKLY INDEX</div>
+            <div className="text-[11px] text-slate-300">MoSPI-ready weekly inflation series</div>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-1">
+            <div className="font-extrabold text-purple-400">4. ML MODEL</div>
+            <div className="text-[11px] text-slate-300">Time-series gradient boosting</div>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-1">
+            <div className="font-extrabold text-emerald-400">5. AI ANALYST</div>
+            <div className="text-[11px] text-slate-300">Grounded natural language insights</div>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-1">
+            <div className="font-extrabold text-amber-400">6. DECISION</div>
+            <div className="text-[11px] text-slate-300">Fare score & &quot;Should I Book?&quot;</div>
+          </div>
         </div>
       </div>
 

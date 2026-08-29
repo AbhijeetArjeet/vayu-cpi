@@ -242,21 +242,31 @@ export default function WeeklyIntelligencePage() {
               </p>
             </div>
 
-            {/* Time Horizon Selector */}
-            <div className="inline-flex rounded-lg bg-slate-950 border border-slate-800 p-1 self-start sm:self-auto">
-              {[4, 8, 12, 26, 52].map((w) => (
-                <button
-                  key={w}
-                  onClick={() => setNumWeeks(w)}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition ${
-                    numWeeks === w
-                      ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {w}W
-                </button>
-              ))}
+            {/* Time Horizon Selector & AI Explain */}
+            <div className="flex items-center gap-3 self-start sm:self-auto">
+              <Link
+                href="/ai"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-bold text-xs border border-cyan-500/30 transition shadow-sm"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Explain with VAYU AI
+              </Link>
+
+              <div className="inline-flex rounded-lg bg-slate-950 border border-slate-800 p-1">
+                {[4, 8, 12, 26, 52].map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => setNumWeeks(w)}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition ${
+                      numWeeks === w
+                        ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {w}W
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

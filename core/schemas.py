@@ -649,5 +649,33 @@ class MLModelMetricsResponse(BaseModel):
     training_timestamp: str
     is_trained: bool
     status: str = "READY"
+    data_leakage_audit: str = "VERIFIED_NO_LEAKAGE (Chronological TimeSeriesSplit)"
+
+
+# ============================================================================
+# GENERATIVE AI ANALYST SCHEMAS
+# ============================================================================
+
+class AIAnalysisRequest(BaseModel):
+    question: str
+    context: Optional[Dict[str, Any]] = None
+    query_type: str = "GENERAL"  # GENERAL, EXPLAIN_WEEKLY, SHOULD_I_BOOK, EXPLAIN_CHART, COMPARE_ROUTES
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    departure_date: Optional[str] = None
+    current_fare: Optional[float] = None
+
+
+class AIAnalysisResponse(BaseModel):
+    answer: str
+    summary: str
+    key_takeaways: List[str]
+    provider_used: str  # GROQ, GEMINI, OPENROUTER, DETERMINISTIC_GROUNDED_ENGINE
+    model_name: str
+    grounded_on_vayu_data: bool = True
+    generated_at: str
+    query_type: str
+    confidence_score: float = 0.95
+
 
 

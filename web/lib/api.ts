@@ -1167,4 +1167,53 @@ export const fetchMLPrediction = async (
   }
 };
 
+// ============================================================================
+// GENERATIVE AI ANALYST TYPES & APIS
+// ============================================================================
+
+export interface AIAnalysisRequest {
+  question: string;
+  context?: Record<string, unknown>;
+  query_type?: string;
+  origin?: string;
+  destination?: string;
+  departure_date?: string;
+  current_fare?: number;
+}
+
+export interface AIAnalysisResponse {
+  answer: string;
+  summary: string;
+  key_takeaways: string[];
+  provider_used: string;
+  model_name: string;
+  grounded_on_vayu_data: boolean;
+  generated_at: string;
+  query_type: string;
+  confidence_score: number;
+}
+
+export const fetchAIAnalysis = async (
+  payload: AIAnalysisRequest
+): Promise<AIAnalysisResponse | null> => {
+  try {
+    const res = await axios.post(`${getApiBaseUrl()}/api/v1/ai/analyze`, payload);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchAIAnalysis failed:", err);
+    return null;
+  }
+};
+
+export const fetchAIStatus = async (): Promise<{ status: string; active_providers: string[]; primary_provider: string } | null> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/api/v1/ai/status`);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchAIStatus failed:", err);
+    return null;
+  }
+};
+
+
 

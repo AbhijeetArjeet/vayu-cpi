@@ -99,15 +99,17 @@ export default function Navbar() {
     { name: "Overview", href: "/", icon: Plane },
     { name: "Weekly Intel", href: "/weekly", icon: BarChart3, badge: "NEW" },
     { name: "Passenger Hub", href: "/passenger", icon: Sparkles, badge: "CITIZEN", glow: true },
+    { name: "VAYU AI", href: "/ai", icon: Sparkles, badge: "AI" },
     { name: "Explainer", href: "/explainer", icon: HelpCircle, badge: "WHY" },
-    { name: "Live Scraper", href: "/scraper", icon: Search },
   ];
 
   // Secondary tools in dropdown
   const secondaryTools = [
+    { name: "About VAYU Architecture", href: "/about-vayu", icon: BookOpen, desc: "5-Stage Intelligence Pipeline" },
     { name: "3-Sigma Shocks", href: "/shocks", icon: ShieldAlert, desc: "Surge & anomaly detector" },
     { name: "Fair Fare Engine", href: "/fair-fare", icon: Calculator, desc: "Empirical percentile bands" },
     { name: "Policy Simulator", href: "/policy", icon: Sliders, desc: "What-if scenario modeling" },
+    { name: "Live Scraper", href: "/scraper", icon: Search, desc: "Multi-carrier live ingestion" },
     { name: "Observatory", href: "/observatory", icon: Radar, desc: "Live terminal feeds" },
     { name: "Provenance Tree", href: "/provenance", icon: Database, desc: "100% audit trail" },
     { name: "MoSPI Index", href: "/mospi", icon: BarChart3, desc: "Official CPI benchmark" },
