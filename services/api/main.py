@@ -91,6 +91,18 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
 
 # --- Root / Standard SIH Endpoints ---
 
+@app.get("/", tags=["System Health"])
+def root_endpoint() -> dict:
+    """Root metadata endpoint."""
+    return {
+        "status": "ok",
+        "service": "vayu-cpi-api",
+        "version": "1.0.0",
+        "description": "VAYU-CPI National Airfare Price Index API (MoSPI / DIID)",
+        "docs_url": "/docs",
+        "health_url": "/health",
+    }
+
 @app.get("/health", tags=["System Health"])
 def health_check() -> dict:
     """System health check endpoint."""
