@@ -1,6 +1,11 @@
 """
 services/ingestion/connectors/akasa_connector.py
-Akasa Air (QP) Airline Source Connector.
+Akasa Air (QP) Carrier Filter Connector.
+
+This connector does NOT independently scrape Akasa Air's website.
+It queries the shared Google Flights live feed (via SerpAPI) and filters
+results by carrier code 'QP' / name 'Akasa'. There is no direct
+airline-site access implemented here.
 """
 
 from __future__ import annotations

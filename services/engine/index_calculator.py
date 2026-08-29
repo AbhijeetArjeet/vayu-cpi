@@ -84,7 +84,13 @@ def compute_route_jevons_index(
 
     micro_index = (current_geom / base_geom) * 100.0
 
-    # Add realistic temporal demand variance for historical backtesting dates preceding live scraping
+    # DISPLAY SMOOTHING FOR HISTORICAL BACKFILL ONLY:
+    # When calculation_date is in the past (before live data collection began),
+    # this applies a deterministic sine-wave adjustment (±3.5%) to simulate
+    # plausible temporal variation in the index. This is a synthetic cosmetic
+    # adjustment, NOT derived from real demand or fare data.
+    # This ONLY applies to past dates (days_diff > 0) and NEVER affects
+    # current-day live index calculations.
     days_diff = (date.today() - calculation_date).days
     if days_diff > 0:
         temporal_factor = 1.0 + (0.035 * math.sin((days_diff / 7.0) * math.pi))

@@ -118,6 +118,7 @@ class EaseMyTripConnector(BaseConnector):
                                         dataset_version="1.0.0",
                                         is_live=True,
                                         is_historical=False,
+                                        is_ota_direct=True,
                                     )
                                 )
                         except (ValueError, IndexError):
@@ -130,13 +131,15 @@ class EaseMyTripConnector(BaseConnector):
             logger.info(f"[EaseMyTripConnector] Successfully crawled {len(records)} quotes from EaseMyTrip.")
             return records
 
-        # Attempt 2: Fail-soft multi-source aggregation with portal attribution
+        # Attempt 2: Fail-soft — falls back to Google Flights (via SerpAPI) since direct OTA probe failed.
+        # IMPORTANT: We label the source honestly as Google Flights, NOT as EaseMyTrip.
         from services.ingestion.live_fetcher import fetch_route_horizon
         try:
             live_quotes = fetch_route_horizon(origin, destination, horizon_days)
             for q in live_quotes:
-                q.portal = "EaseMyTrip (Aggregated Feed)"
-                q.source = "EaseMyTrip Market Adapter"
+                q.portal = "Google Flights (via EaseMyTrip adapter — direct OTA probe failed)"
+                q.source = "Google Flights Live Feed"
+                q.is_ota_direct = False
             return live_quotes
         except Exception as agg_err:
             logger.warning(f"[EaseMyTripConnector] Aggregated fallback failed: {agg_err}")

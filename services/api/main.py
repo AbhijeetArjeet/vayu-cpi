@@ -27,7 +27,11 @@ from services.engine.index_calculator import (
     compute_national_composite_cpi,
     compute_carrier_indices,
 )
-from services.engine.backtester import run_30day_backtest
+from services.engine.backtester import (
+    run_30day_backtest,
+    run_30day_synthetic_validation,
+    run_real_dgca_backtest,
+)
 from services.persistence.db import fetch_all_observations
 
 logging.basicConfig(level=logging.INFO)
@@ -216,11 +220,19 @@ def get_monthly_index(
     return cpi_monthly(months_back=months_back, mode=mode)
 
 
-@app.get("/backtest", response_model=BacktestResult, tags=["Econometric Validation"])
-def get_backtest_results(mode: str = Query("historical", description="historical, combined")) -> BacktestResult:
+@app.get("/methodology-validation", response_model=BacktestResult, tags=["Econometric Validation"])
+def get_methodology_validation(mode: str = Query("real_dgca", description="real_dgca, synthetic_self_check, historical, combined")) -> BacktestResult:
     """
-    Executes 30-day econometric backtesting comparing VAYU-CPI against DGCA reference benchmarks.
-    Returns MAE, RMSE, MAPE, Pearson correlation, and daily comparative series.
+    Executes econometric backtesting against DGCA / MoCA baseline benchmark data (mode='real_dgca')
+    or synthetic aggregation pipeline self-consistency check (mode='synthetic_self_check').
+    """
+    return run_30day_backtest(mode=mode)
+
+
+@app.get("/backtest", response_model=BacktestResult, tags=["Econometric Validation"])
+def get_backtest_results(mode: str = Query("real_dgca", description="real_dgca, synthetic_self_check, historical, combined")) -> BacktestResult:
+    """
+    Executes econometric backtesting comparing VAYU-CPI against official DGCA / MoCA baseline benchmarks.
     """
     return run_30day_backtest(mode=mode)
 
@@ -238,10 +250,22 @@ app.include_router(debug_router)
 app.include_router(data_router)
 app.include_router(admin_router)
 
-# Mount alias for /api/v1/backtest
-@app.get("/api/v1/backtest", response_model=BacktestResult, tags=["Econometric Validation"])
-def api_v1_backtest(mode: str = Query("historical")) -> BacktestResult:
+# Mount aliases
+@app.get("/api/v1/methodology-validation", response_model=BacktestResult, tags=["Econometric Validation"])
+def api_v1_methodology_validation(mode: str = Query("real_dgca")) -> BacktestResult:
     return run_30day_backtest(mode=mode)
+
+@app.get("/api/v1/backtest", response_model=BacktestResult, tags=["Econometric Validation"])
+def api_v1_backtest(mode: str = Query("real_dgca")) -> BacktestResult:
+    return run_30day_backtest(mode=mode)
+
+@app.get("/cross-validation", tags=["Econometric Validation"])
+def get_cross_validation(
+    origin: Optional[str] = Query(None, min_length=3, max_length=3),
+    destination: Optional[str] = Query(None, min_length=3, max_length=3),
+):
+    from services.engine.cross_validation import compute_cross_validation_report
+    return compute_cross_validation_report(origin=origin, destination=destination)
 
 @app.get("/api/v1/routes", tags=["Core Aviation Data"])
 def api_v1_routes() -> dict:

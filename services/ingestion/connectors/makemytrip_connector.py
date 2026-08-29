@@ -113,6 +113,7 @@ class MakeMyTripConnector(BaseConnector):
                                         dataset_version="1.0.0",
                                         is_live=True,
                                         is_historical=False,
+                                        is_ota_direct=True,
                                     )
                                 )
                         except (ValueError, IndexError):
@@ -124,13 +125,15 @@ class MakeMyTripConnector(BaseConnector):
             logger.info(f"[MakeMyTripConnector] Successfully crawled {len(records)} quotes from MakeMyTrip.")
             return records
 
-        # Attempt 2: Fail-soft multi-source aggregation with portal attribution
+        # Attempt 2: Fail-soft — falls back to Google Flights (via SerpAPI) since direct OTA probe failed.
+        # IMPORTANT: We label the source honestly as Google Flights, NOT as MakeMyTrip.
         from services.ingestion.live_fetcher import fetch_route_horizon
         try:
             live_quotes = fetch_route_horizon(origin, destination, horizon_days)
             for q in live_quotes:
-                q.portal = "MakeMyTrip (Aggregated Feed)"
-                q.source = "MakeMyTrip Market Adapter"
+                q.portal = "Google Flights (via MakeMyTrip adapter — direct OTA probe failed)"
+                q.source = "Google Flights Live Feed"
+                q.is_ota_direct = False
             return live_quotes
         except Exception as agg_err:
             logger.warning(f"[MakeMyTripConnector] Aggregated fallback failed: {agg_err}")

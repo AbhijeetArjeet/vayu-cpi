@@ -39,7 +39,13 @@ from services.engine.index_calculator import (
     compute_carrier_indices,
     _geometric_mean,
 )
-from services.engine.backtester import run_30day_backtest, _calculate_pearson_correlation
+from services.engine.backtester import (
+    run_30day_synthetic_validation,
+    run_30day_backtest,
+    run_real_dgca_backtest,
+    run_synthetic_self_check,
+    _calculate_pearson_correlation,
+)
 from services.engine.anomaly_detector import detect_surges
 from services.persistence.db import FareObservation, init_db
 from services.ingestion.connectors import get_connector, CONNECTOR_REGISTRY
@@ -184,8 +190,8 @@ def test_national_composite_cpi():
 
 
 # 5. 30-Day Backtesting & Error Metrics
-def test_30day_backtesting_engine():
-    res = run_30day_backtest(mode="historical")
+def test_30day_backtesting_engine_synthetic():
+    res = run_synthetic_self_check(mode="historical")
     assert isinstance(res, BacktestResult)
     assert len(res.series) == 30
     assert res.metrics.observation_days == 30
@@ -193,6 +199,22 @@ def test_30day_backtesting_engine():
     assert res.metrics.rmse >= 0.0
     assert res.metrics.mape >= 0.0
     assert -1.0 <= res.metrics.pearson_correlation <= 1.0
+    assert res.metrics.validation_status in ("PASSED", "WARNING")
+    assert res.metrics.is_simulation is True
+    assert "does NOT compare" in res.methodology_notes or "NOT" in res.methodology_notes
+
+
+def test_30day_backtesting_engine_real_dgca():
+    init_db()
+    res = run_real_dgca_backtest(observation_days=30, data_mode="combined")
+    assert isinstance(res, BacktestResult)
+    assert len(res.series) == 30
+    assert res.metrics.observation_days == 30
+    assert res.metrics.mae >= 0.0
+    assert res.metrics.rmse >= 0.0
+    assert res.metrics.mape >= 0.0
+    assert res.metrics.is_simulation is False
+    assert "DGCA" in res.metrics.reference_dataset
     assert res.metrics.validation_status in ("PASSED", "WARNING")
 
 
@@ -224,6 +246,15 @@ def test_modular_connectors_registry():
     ct = get_connector("CT")
     assert ct.is_ota is True
     assert ct.name == "CleartripConnector"
+
+    sec_api = get_connector("SECONDARY_API")
+    assert sec_api.is_ota is True
+    assert sec_api.name == "SecondaryFareAPIConnector"
+    assert sec_api.rate_limit_delay_sec >= 3.0
+    quota_status = sec_api.get_quota_status()
+    assert "daily_limit" in quota_status
+    # Fails closed when key not present
+    assert sec_api.fetch_quotes("DEL", "BOM", 7) == []
 
     sim = get_connector("SIMULATED")
     quotes = sim.fetch_quotes("DEL", "BOM", 7)
@@ -342,6 +373,11 @@ def test_fastapi_all_sih_endpoints():
     res = client.get("/api/v1/cpi/airfare-index")
     assert res.status_code == 200
 
+    # 11. /cross-validation
+    res = client.get("/cross-validation")
+    assert res.status_code == 200
+    assert "status" in res.json()
+
 
 # 10. Sweep Continuation Fail-soft
 def test_scheduler_continuation(monkeypatch):
@@ -371,3 +407,12 @@ def test_scheduler_continuation(monkeypatch):
     assert summary["failed_jobs"] == 1
     assert summary["success_jobs"] == expected_total - 1
     assert call_count == expected_total
+
+
+# 11. Cross-Validation Engine
+def test_cross_validation_report_calculation():
+    from services.engine.cross_validation import compute_cross_validation_report
+    init_db()
+    rep = compute_cross_validation_report()
+    assert "status" in rep
+    assert "validation_status" in rep

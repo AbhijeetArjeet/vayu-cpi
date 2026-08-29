@@ -16,6 +16,7 @@ from services.ingestion.connectors.spicejet_connector import SpiceJetConnector
 from services.ingestion.connectors.makemytrip_connector import MakeMyTripConnector
 from services.ingestion.connectors.easemytrip_connector import EaseMyTripConnector
 from services.ingestion.connectors.cleartrip_connector import CleartripConnector
+from services.ingestion.connectors.secondary_fare_api_connector import SecondaryFareAPIConnector
 from services.ingestion.connectors.simulated_connector import SimulatedReferenceConnector
 
 CONNECTOR_REGISTRY: Dict[str, Type[BaseConnector]] = {
@@ -31,7 +32,7 @@ CONNECTOR_REGISTRY: Dict[str, Type[BaseConnector]] = {
     "SG": SpiceJetConnector,
     "SPICEJET": SpiceJetConnector,
     
-    # Online Travel Agencies (OTAs)
+    # Online Travel Agencies & Aggregators
     "OTA": OTAConnector,
     "GOOGLE_FLIGHTS": OTAConnector,
     "MMT": MakeMyTripConnector,
@@ -40,6 +41,8 @@ CONNECTOR_REGISTRY: Dict[str, Type[BaseConnector]] = {
     "EASEMYTRIP": EaseMyTripConnector,
     "CT": CleartripConnector,
     "CLEARTRIP": CleartripConnector,
+    "SECONDARY_API": SecondaryFareAPIConnector,
+    "RAPIDAPI": SecondaryFareAPIConnector,
     
     # Testing & Calibration
     "SIMULATED": SimulatedReferenceConnector,
@@ -62,6 +65,7 @@ __all__ = [
     "MakeMyTripConnector",
     "EaseMyTripConnector",
     "CleartripConnector",
+    "SecondaryFareAPIConnector",
     "SimulatedReferenceConnector",
     "CONNECTOR_REGISTRY",
     "get_connector",

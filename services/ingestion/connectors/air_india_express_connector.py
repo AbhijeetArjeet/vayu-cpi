@@ -1,6 +1,11 @@
 """
 services/ingestion/connectors/air_india_express_connector.py
-Air India Express (IX) Airline Source Connector.
+Air India Express (IX) Carrier Filter Connector.
+
+This connector does NOT independently scrape Air India Express's website.
+It queries the shared Google Flights live feed (via SerpAPI) and filters
+results by carrier code 'IX'/'I5' / name containing 'Express'. There is no
+direct airline-site access implemented here.
 """
 
 from __future__ import annotations

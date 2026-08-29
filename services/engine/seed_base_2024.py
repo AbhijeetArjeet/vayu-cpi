@@ -1,11 +1,26 @@
 """
 services/engine/seed_base_2024.py
-Base 2024 reference geometric mean prices across representative domestic corridors and advance purchase horizons.
+Base 2024 reference geometric mean prices across representative domestic corridors
+and advance purchase horizons.
+
+⚠️ IMPORTANT: These are assumed/illustrative base-period reference fares, NOT derived
+from any official published base-period average fare data (e.g., DGCA, MoCA, or MoSPI).
+They are hand-estimated values intended to provide a plausible denominator for the
+Jevons index formula (I = current_geom_mean / base_geom_mean × 100) during the
+prototype/demo phase.
+
+To replace with a real base period:
+1. Accumulate N months (recommended: 3–6) of live Google Flights observations
+2. Compute the geometric mean fare for each (corridor, horizon) pair over that period
+3. Replace the hardcoded BASE_FARES dict with those computed values
+4. Document the base period dates and observation counts used
 """
 
 from __future__ import annotations
 
-# Base reference prices for T+7 (1-week advance) in Base Year 2024 (INR)
+# Illustrative base reference prices for T+7 (1-week advance) in Base Year 2024 (INR).
+# These values are hand-estimated, not computed from observed data.
+# See module docstring for how to replace with real base-period averages.
 BASE_FARES = {
     "DEL-BOM": 4200.0,
     "BOM-DEL": 4100.0,

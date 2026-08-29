@@ -1,6 +1,11 @@
 """
 services/ingestion/connectors/spicejet_connector.py
-SpiceJet (SG) Airline Source Connector.
+SpiceJet (SG) Carrier Filter Connector.
+
+This connector does NOT independently scrape SpiceJet's website.
+It queries the shared Google Flights live feed (via SerpAPI) and filters
+results by carrier code 'SG' / name 'SpiceJet'. There is no direct
+airline-site access implemented here.
 """
 
 from __future__ import annotations

@@ -84,6 +84,7 @@ class FareObservation(Base):
 
     availability_status = Column(String(16), default="AVAILABLE", nullable=False, index=True)
     is_modeled = Column(Boolean, default=False, nullable=False)
+    is_ota_direct = Column(Boolean, default=True, nullable=False)
 
     # Dataset Registry & Provenance fields
     source_type = Column(String(64), default="LIVE_FLIGHT", nullable=False)
@@ -132,6 +133,7 @@ def init_db() -> None:
                 ("currency", "VARCHAR(8) DEFAULT 'INR'"),
                 ("availability_status", "VARCHAR(16) DEFAULT 'AVAILABLE'"),
                 ("is_modeled", "BOOLEAN DEFAULT FALSE"),
+                ("is_ota_direct", "BOOLEAN DEFAULT TRUE"),
                 ("source_type", "VARCHAR(64) DEFAULT 'LIVE_FLIGHT'"),
                 ("source_name", "VARCHAR(128) DEFAULT 'Google Flights Live Feed'"),
                 ("dataset_version", "VARCHAR(32) DEFAULT '1.0.0'"),
@@ -323,6 +325,7 @@ def save_fare_records_with_diagnostics(records: list[RawFareRecord]) -> Dict[str
                 currency=getattr(r, 'currency', 'INR'),
                 availability_status=getattr(r, 'availability_status', 'AVAILABLE'),
                 is_modeled=getattr(r, 'is_modeled', False),
+                is_ota_direct=getattr(r, 'is_ota_direct', True),
                 source_type=getattr(r, 'source_type', 'LIVE_FLIGHT'),
                 source_name=getattr(r, 'source_name', 'Google Flights Live Feed'),
                 dataset_version=getattr(r, 'dataset_version', '1.0.0'),

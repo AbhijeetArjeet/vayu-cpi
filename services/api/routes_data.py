@@ -133,3 +133,16 @@ async def route_historical_comparison(
 ):
     """Returns current market fare vs historical baseline median & percentile rank."""
     return compute_historical_comparison(origin, destination, current_fare)
+
+
+@router.get("/cross-validation", tags=["VAYU Dataset Registry & Market Coverage"])
+async def get_cross_validation(
+    origin: Optional[str] = Query(None, min_length=3, max_length=3),
+    destination: Optional[str] = Query(None, min_length=3, max_length=3),
+):
+    """
+    Returns independent cross-validation statistics comparing Google Flights observations
+    against secondary independent flight fare API feeds.
+    """
+    from services.engine.cross_validation import compute_cross_validation_report
+    return compute_cross_validation_report(origin=origin, destination=destination)

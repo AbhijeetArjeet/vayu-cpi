@@ -36,3 +36,22 @@ Detailed schema documentation for the `fare_observations` database and API data 
 | `source_type` | String(64) | Provenance type tag | `LIVE_FLIGHT`, `DGCA_REFERENCE`, `SIMULATED` | No |
 | `is_live` | Boolean | True for real-time scraped quotes | `true`, `false` | No |
 | `is_historical` | Boolean | True for historical benchmark quotes | `true`, `false` | No |
+
+---
+
+## 2. Fare Component Observability
+
+The following table clarifies which fare fields are **directly observed** from the data source versus **modeled/estimated** by the `unbundler.py` module using fixed constants.
+
+When `is_modeled = true`, the fee breakdown fields are synthetic estimates, not values scraped from the source.
+
+| Field | Observed or Modeled? | Notes |
+| :--- | :---: | :--- |
+| `total_fare` | **Observed** | Directly scraped from Google Flights or OTA search results. This is the only fare value that reflects real market pricing. |
+| `base_fare` | Modeled | Estimated by `unbundler.py` as `total_fare - (UDF + convenience_fee + fuel_surcharge_yq)`. Uses fixed fee constants, not airline-reported breakdowns. |
+| `taxes` | Modeled | Computed as `total_fare - base_fare`. Not independently observed. |
+| `fuel_surcharge_yq` | Modeled | Fixed constant (₹600) applied by `unbundler.py`. Not scraped from source. |
+| `airport_fee_udf` | Modeled | Airport-specific constant from a hardcoded lookup table in `unbundler.py` (e.g., DEL=₹650, BOM=₹650, BLR=₹580). Not scraped. |
+| `convenience_fee` | Modeled | Fixed constant (₹300) applied by `unbundler.py`. Not scraped from source. |
+
+> **Key takeaway**: Only `total_fare` is a real observed market price. All sub-component fields (`base_fare`, `taxes`, `fuel_surcharge_yq`, `airport_fee_udf`, `convenience_fee`) are estimates produced by the unbundling model and should be treated as approximate breakdowns, not ground-truth values. The `is_modeled` flag on each record indicates when this estimation has been applied.

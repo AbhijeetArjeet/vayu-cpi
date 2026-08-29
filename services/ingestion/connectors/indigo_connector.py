@@ -1,7 +1,11 @@
 """
 services/ingestion/connectors/indigo_connector.py
-IndiGo (6E) Airline Source Connector.
-Respects robots.txt and rate limits. Interfaces with public booking availability or delegates to aggregated feed.
+IndiGo (6E) Carrier Filter Connector.
+
+This connector does NOT independently scrape IndiGo's website.
+It queries the shared Google Flights live feed (via SerpAPI) and filters
+results by carrier code '6E' / name 'IndiGo'. There is no direct
+airline-site access implemented here.
 """
 
 from __future__ import annotations

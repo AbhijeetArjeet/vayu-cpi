@@ -1,6 +1,11 @@
 """
 services/ingestion/connectors/air_india_connector.py
-Air India (AI) Airline Source Connector.
+Air India (AI) Carrier Filter Connector.
+
+This connector does NOT independently scrape Air India's website.
+It queries the shared Google Flights live feed (via SerpAPI) and filters
+results by carrier code 'AI' / name 'Air India'. There is no direct
+airline-site access implemented here.
 """
 
 from __future__ import annotations

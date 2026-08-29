@@ -39,6 +39,7 @@ class RawFareRecord(BaseModel):
     
     availability_status: str = Field(default="AVAILABLE", description="AVAILABLE, SOLD_OUT, CANCELLED")
     is_modeled: bool = Field(default=False, description="True if fee breakdown is estimated/unbundled")
+    is_ota_direct: bool = Field(default=True, description="True only when fare was directly scraped from OTA website; False when OTA adapter fell back to Google Flights")
 
     # Provenance and Dataset Registry fields
     source_type: str = "LIVE_FLIGHT"  # LIVE_FLIGHT, HISTORICAL_DATASET, DGCA_REFERENCE, EXTERNAL_API
