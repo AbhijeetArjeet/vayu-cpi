@@ -63,12 +63,14 @@ def get_airfare_index(
     period_days: int = Query(30, description="Analysis window in days: 1, 7, 30, 90, 365"),
 ):
     """Returns national composite CPI (Base 2024 = 100) recalculated for selected data mode and analysis period."""
-    if period_days not in (1, 7, 30, 90, 365):
+    p_days = period_days if isinstance(period_days, int) else 30
+    t_date = target_date if isinstance(target_date, date) else None
+    if p_days not in (1, 7, 30, 90, 365):
         raise HTTPException(
             status_code=400,
             detail=f"Invalid period_days '{period_days}'. Allowed values: 1 (24h), 7 (7d), 30 (30d), 90 (90d), 365 (1y)."
         )
-    return compute_national_composite_cpi(target_date, mode=mode, period_days=period_days)
+    return compute_national_composite_cpi(t_date, mode=mode, period_days=p_days)
 
 
 @router.get("/daily")
@@ -180,18 +182,20 @@ def get_route_index(
     period_days: int = Query(30, description="Analysis window in days: 1, 7, 30, 90, 365"),
 ):
     """Returns the Jevons micro-index for a single route/horizon pair within the analysis window."""
-    if period_days not in (1, 7, 30, 90, 365):
+    p_days = period_days if isinstance(period_days, int) else 30
+    t_date = target_date if isinstance(target_date, date) else None
+    if p_days not in (1, 7, 30, 90, 365):
         raise HTTPException(
             status_code=400,
             detail=f"Invalid period_days '{period_days}'. Allowed values: 1, 7, 30, 90, 365."
         )
     result = compute_route_jevons_index(
-        origin.upper(), destination.upper(), horizon_days, target_date, period_days=period_days, mode=mode
+        origin.upper(), destination.upper(), horizon_days, t_date, period_days=p_days, mode=mode
     )
     if result is None:
         return {
             "error": "no_data",
-            "message": f"No computable index yet for {origin.upper()}-{destination.upper()} T+{horizon_days} in '{mode}' mode for {period_days}d window.",
+            "message": f"No computable index yet for {origin.upper()}-{destination.upper()} T+{horizon_days} in '{mode}' mode for {p_days}d window.",
         }
     return result.model_dump(mode="json")
 
@@ -203,7 +207,9 @@ def get_all_routes_current(
     period_days: int = Query(30, description="Analysis window in days: 1, 7, 30, 90, 365"),
 ):
     """Returns every tracked route x horizon micro-index for one date and analysis period."""
-    if period_days not in (1, 7, 30, 90, 365):
+    p_days = period_days if isinstance(period_days, int) else 30
+    t_date = target_date if isinstance(target_date, date) else None
+    if p_days not in (1, 7, 30, 90, 365):
         raise HTTPException(
             status_code=400,
             detail=f"Invalid period_days '{period_days}'. Allowed values: 1, 7, 30, 90, 365."
@@ -211,10 +217,10 @@ def get_all_routes_current(
     results = []
     for origin, destination in ALL_CORRIDORS:
         for horizon in HORIZON_ALPHA.keys():
-            idx = compute_route_jevons_index(origin, destination, horizon, target_date, period_days=period_days, mode=mode)
+            idx = compute_route_jevons_index(origin, destination, horizon, t_date, period_days=p_days, mode=mode)
             if idx is not None:
                 results.append(idx.model_dump(mode="json"))
-    return {"count": len(results), "mode": mode, "period_days": period_days, "routes": results}
+    return {"count": len(results), "mode": mode, "period_days": p_days, "routes": results}
 
 
 @router.get("/export/csv")
