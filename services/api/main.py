@@ -243,12 +243,14 @@ from services.api.routes_dgca import router as dgca_router
 from services.api.routes_debug import router as debug_router
 from services.api.routes_data import router as data_router
 from services.api.routes_admin import router as admin_router
+from services.api.routes_scraper import router as scraper_router
 
 app.include_router(cpi_router)
 app.include_router(dgca_router)
 app.include_router(debug_router)
 app.include_router(data_router)
 app.include_router(admin_router)
+app.include_router(scraper_router)
 
 # Mount aliases
 @app.get("/api/v1/methodology-validation", response_model=BacktestResult, tags=["Econometric Validation"])

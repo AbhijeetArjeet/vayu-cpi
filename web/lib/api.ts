@@ -387,3 +387,80 @@ export const triggerLiveSweep = async () => {
 export const exportCsv = (mode: DataMode = 'live') => {
   window.open(`${API_BASE_URL}/api/v1/cpi/export/csv?mode=${mode}`, '_blank');
 };
+
+export interface NormalizedFlightOffer {
+  airline: string;
+  carrier_code: string;
+  flight_number: string;
+  origin: string;
+  destination: string;
+  departure_date: string;
+  departure_time: string;
+  arrival_time: string;
+  duration: string;
+  stops: number;
+  base_fare: number;
+  taxes: number;
+  airport_fee_udf: number;
+  convenience_fee: number;
+  fuel_surcharge_yq: number;
+  total_fare: number;
+  booking_window: string;
+  source: string;
+  portal: string;
+  is_ota_direct: boolean;
+  availability_status: string;
+}
+
+export interface LiveSearchResponse {
+  status: string;
+  message: string;
+  query: {
+    origin: string;
+    destination: string;
+    horizon_days: number;
+    booking_window: string;
+    departure_date: string;
+    save_to_db: boolean;
+  };
+  summary: {
+    total_offers_scraped: number;
+    lowest_fare_inr: number;
+    highest_fare_inr: number;
+    median_fare_inr: number;
+    avg_fare_inr: number;
+    cheapest_carrier: string;
+    corridor: string;
+    booking_horizon: string;
+    travel_date: string;
+  };
+  offers: NormalizedFlightOffer[];
+  diagnostics: {
+    elapsed_ms: number;
+    saved_to_db_records: number;
+    fetch_metadata: any;
+    timestamp: string;
+  };
+}
+
+export const executeLiveFlightSearch = async (
+  origin: string,
+  destination: string,
+  horizon_days: number = 7,
+  departure_date?: string,
+  save_to_db: boolean = true
+): Promise<LiveSearchResponse> => {
+  const response = await axios.post(`${API_BASE_URL}/api/v1/scraper/live-search`, {
+    origin,
+    destination,
+    horizon_days,
+    departure_date,
+    save_to_db,
+  });
+  return response.data;
+};
+
+export const fetchSupportedCorridors = async () => {
+  const response = await axios.get(`${API_BASE_URL}/api/v1/scraper/corridors`);
+  return response.data;
+};

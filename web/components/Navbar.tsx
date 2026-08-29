@@ -19,6 +19,7 @@ import {
   Sliders,
   Menu,
   Compass,
+  Search,
   X,
 } from "lucide-react";
 import { triggerLiveSweep, fetchMarketCoverage } from "../lib/api";
@@ -76,6 +77,7 @@ export default function Navbar() {
   const navLinks = [
     { name: "Overview", href: "/", icon: Plane },
     { name: "Observatory", href: "/observatory", icon: Radar, badge: "LIVE" },
+    { name: "Live Scraper", href: "/scraper", icon: Search, badge: "NEW" },
     { name: "Skyview", href: "/skyview", icon: Compass, badge: "3D" },
     { name: "Routes", href: "/routes", icon: Navigation },
     { name: "Forecast", href: "/forecast", icon: TrendingUp },

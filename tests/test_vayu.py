@@ -439,3 +439,30 @@ def test_mospi_real_dataset_and_comparison():
     assert comp["total_months"] > 0
     assert comp["base_period_original"] == "2012 = 100.0"
     assert len(comp["series"]) == len(real_records)
+
+
+# 13. Live Flight Scraper API
+def test_live_flight_scraper_api():
+    from services.api.main import app
+    from fastapi.testclient import TestClient
+    init_db()
+    client = TestClient(app)
+    # 1. Test corridors endpoint
+    res = client.get("/api/v1/scraper/corridors")
+    assert res.status_code == 200
+    assert res.json()["total_airports"] > 0
+
+    # 2. Test live search endpoint
+    search_payload = {
+        "origin": "DEL",
+        "destination": "BOM",
+        "horizon_days": 7,
+        "save_to_db": False,
+    }
+    res = client.post("/api/v1/scraper/live-search", json=search_payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] in ("SUCCESS", "NO_OFFERS")
+    assert "summary" in data
+    assert "offers" in data
+    assert "diagnostics" in data
