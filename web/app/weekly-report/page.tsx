@@ -96,10 +96,10 @@ export default function WeeklyReportPage() {
             <div className="p-3 bg-white rounded-lg border border-slate-200">
               <div className="text-xs text-slate-500 font-semibold">Weekly National Index</div>
               <div className="text-2xl font-black text-slate-900 mt-1">
-                {data ? data.national_index.toFixed(2) : '104.82'}
+                {data ? data.national_index.toFixed(2) : '--'}
               </div>
-              <div className="text-[11px] font-bold text-rose-600 mt-0.5">
-                {data?.wow_change_pct ? `${data.wow_change_pct > 0 ? '+' : ''}${data.wow_change_pct}% WoW` : '+2.7% WoW'}
+              <div className="text-xs text-slate-400">
+                {data?.wow_change_pct ? `${data.wow_change_pct > 0 ? '+' : ''}${data.wow_change_pct}% WoW` : '--'}
               </div>
             </div>
             <div className="p-3 bg-white rounded-lg border border-slate-200">

@@ -81,15 +81,15 @@ function AIAnalystContent() {
     setResponse(null);
 
     const contextPayload = {
-      national_index: weeklyData?.national_index || 104.82,
-      wow_change_pct: weeklyData?.wow_change_pct || 2.7,
-      market_signal: weeklyData?.market_signal || 'RISING',
-      cheapest_corridor: weeklyData?.cheapest_corridor || 'BOM-GOI',
+      national_index: weeklyData?.national_index || 0.0,
+      wow_change_pct: weeklyData?.wow_change_pct || 0.0,
+      market_signal: weeklyData?.market_signal || 'STABLE',
+      cheapest_corridor: weeklyData?.cheapest_corridor || 'DEL-BOM',
       fastest_rising_route: weeklyData?.fastest_rising_route || 'DEL-BOM',
-      total_observations: weeklyData?.total_observations || 12482,
-      data_quality: weeklyData?.data_quality || 'HIGH',
-      ml_mae: mlMetrics?.mae || 248.5,
-      ml_r2: mlMetrics?.r2_score || 0.88,
+      total_observations: weeklyData?.total_observations || 0,
+      data_quality: weeklyData?.data_quality || 'RECENT',
+      ml_mae: mlMetrics?.mae || 0.0,
+      ml_r2: mlMetrics?.r2_score || 0.0,
     };
 
     try {

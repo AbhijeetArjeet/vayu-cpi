@@ -100,10 +100,10 @@ function CommandCenterContent() {
     router.push(`/passenger?from=${searchFrom}&to=${searchTo}&date=${searchDate}&pax=${searchPax}`);
   };
 
-  const nationalIndexVal = cpiData ? cpiData.composite_index : (weeklyData ? weeklyData.national_index : 104.82);
-  const wowChange = weeklyData ? weeklyData.wow_change_pct : 2.7;
-  const marketSignal = weeklyData ? weeklyData.market_signal : "RISING";
-  const dataQuality = weeklyData ? weeklyData.data_quality : "HIGH";
+  const nationalIndexVal: number = (cpiData?.composite_index ?? weeklyData?.national_index) ?? 0.0;
+  const wowChange: number = (weeklyData?.wow_change_pct ?? cpiData?.monthly_change_pct) ?? 0.0;
+  const marketSignal: string = weeklyData?.market_signal || "STABLE";
+  const dataQuality: string = weeklyData?.data_quality || "HIGH";
 
   return (
     <div className="space-y-8 font-sans max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-slate-100">

@@ -144,13 +144,13 @@ export default function WeeklyIntelligencePage() {
           <div className="bg-slate-900/80 border border-slate-800/80 rounded-xl p-4 relative overflow-hidden backdrop-blur-sm">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">National Airfare Index</div>
             <div className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
-              {data ? data.national_index.toFixed(2) : '104.82'}
+              {data ? data.national_index.toFixed(2) : '--'}
             </div>
             <div className="flex items-center gap-1 text-xs mt-1.5 font-medium">
               {(data?.wow_change_pct || 0) >= 0 ? (
                 <span className="text-rose-400 flex items-center">
                   <ArrowUpRight className="w-3.5 h-3.5" />
-                  +{data?.wow_change_pct || 2.7}% WoW
+                  +{data ? data.wow_change_pct : 0.0}% WoW
                 </span>
               ) : (
                 <span className="text-emerald-400 flex items-center">
