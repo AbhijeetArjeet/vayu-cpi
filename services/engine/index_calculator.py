@@ -199,7 +199,7 @@ def compute_national_composite_cpi(
             since=window_start_dt,
             until=window_end_dt,
         )
-        if len(all_obs) == 0:
+        if len(all_obs) == 0 and calculation_date is None:
             all_obs = fetch_all_observations(mode=mode, limit=5000)
     
     # Group observations by (origin, destination, horizon_days)
@@ -242,15 +242,32 @@ def compute_national_composite_cpi(
                 period_days=period_days,
             )
 
+    # Dynamic horizon alpha weights based on selected analysis period
+    def _period_horizon_alpha(h: int, p_days: int) -> float:
+        if p_days == 1:
+            # 24h Spot focuses heavily on immediate departure volatility
+            return 0.65 if h == 1 else (0.25 if h == 7 else 0.05)
+        elif p_days == 7:
+            # 7-day weekly analysis
+            return 0.35 if h == 1 else (0.35 if h == 7 else (0.15 if h == 15 else 0.10))
+        elif p_days == 90:
+            # Quarterly trend emphasizes planned travel
+            return 0.15 if h == 1 else (0.25 if h == 7 else (0.30 if h == 15 else 0.30))
+        elif p_days == 365:
+            # Annual index balances full advance horizons
+            return 0.10 if h == 1 else (0.20 if h == 7 else (0.35 if h == 15 else 0.35))
+        # Default 30-day monthly index
+        return get_horizon_alpha(h)
+
     # Route blended values
     route_blended = {}
     for route, horizon_map in route_results.items():
         if not horizon_map:
             continue
-        alpha_sum = sum(get_horizon_alpha(h) for h in horizon_map.keys())
+        alpha_sum = sum(_period_horizon_alpha(h, period_days) for h in horizon_map.keys())
         if alpha_sum == 0:
             continue
-        blended = sum(get_horizon_alpha(h) * v.jevons_index for h, v in horizon_map.items()) / alpha_sum
+        blended = sum(_period_horizon_alpha(h, period_days) * v.jevons_index for h, v in horizon_map.items()) / alpha_sum
         route_blended[route] = blended
 
     if not route_blended or len(all_obs) == 0:
