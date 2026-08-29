@@ -161,6 +161,7 @@ def compute_cross_validation_report(
 
         return {
             "status": "VALIDATED",
+            "validation_status": val_status,
             "total_comparisons": n,
             "mean_percentage_difference": mean_diff,
             "within_5pct_agreement_rate": round((within_5_cnt / n) * 100.0, 1),

@@ -17,6 +17,7 @@ import DataModeSelector from "../components/DataModeSelector";
 import DateRangeSelector, { DateRangeDays } from "../components/DateRangeSelector";
 import CoverageMetrics from "../components/CoverageMetrics";
 import CurrentVsHistoricalCard from "../components/CurrentVsHistoricalCard";
+import AirfareWeatherMap from "../components/intelligence/AirfareWeatherMap";
 import { HeroPulseSkeleton, MapSkeleton } from "../components/SkeletonLoaders";
 import { useVayuTheme } from "../components/ThemeContext";
 import { calculateMarketStatus, calculateCpiContributions } from "../lib/analytics";
@@ -163,8 +164,85 @@ function CommandCenterContent() {
         </div>
       )}
 
+      {/* 3b. VAYU Airfare Weather Regional Pulse */}
+      <AirfareWeatherMap />
+
       {/* 4. Hero Market Pulse Section */}
       <HeroMarketPulse cpiData={cpiData} alerts={alerts} observationCount={obsCount} dateRangeDays={dateRangeDays} />
+
+      {/* 4b. VAYU Statistical Intelligence Capabilities Strip */}
+      <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-r from-blue-950/20 via-slate-900/40 to-indigo-950/20 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+              CORE POSITIONING
+            </span>
+            <h3 className="font-bold text-xs text-slate-800 dark:text-slate-200 tracking-wide font-mono">
+              OTHERS COLLECT FARES. VAYU TURNS FARES INTO EVIDENCE.
+            </h3>
+          </div>
+          <span className="text-[11px] font-mono text-slate-400 hidden sm:inline">
+            Collect → Clean → Normalize → Measure → Explain → Detect → Predict → Simulate → Audit
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 font-mono text-xs">
+          <a
+            href="/explainer"
+            className="p-3 rounded-xl bg-slate-900/80 hover:bg-blue-900/30 border border-slate-800 hover:border-blue-500/40 transition-all text-left space-y-1 block group"
+          >
+            <div className="flex items-center justify-between text-blue-400 font-bold">
+              <span>1. EXPLAIN</span>
+              <span className="text-[10px] text-slate-500 group-hover:text-blue-400 transition-colors">→</span>
+            </div>
+            <p className="text-[11px] text-slate-400">Why did airfare change? Attribution waterfall</p>
+          </a>
+
+          <a
+            href="/shocks"
+            className="p-3 rounded-xl bg-slate-900/80 hover:bg-rose-900/30 border border-slate-800 hover:border-rose-500/40 transition-all text-left space-y-1 block group"
+          >
+            <div className="flex items-center justify-between text-rose-400 font-bold">
+              <span>2. DETECT</span>
+              <span className="text-[10px] text-slate-500 group-hover:text-rose-400 transition-colors">→</span>
+            </div>
+            <p className="text-[11px] text-slate-400">Automated 3-sigma anomaly & shock scanner</p>
+          </a>
+
+          <a
+            href="/fair-fare"
+            className="p-3 rounded-xl bg-slate-900/80 hover:bg-indigo-900/30 border border-slate-800 hover:border-indigo-500/40 transition-all text-left space-y-1 block group"
+          >
+            <div className="flex items-center justify-between text-indigo-400 font-bold">
+              <span>3. EVALUATE</span>
+              <span className="text-[10px] text-slate-500 group-hover:text-indigo-400 transition-colors">→</span>
+            </div>
+            <p className="text-[11px] text-slate-400">Is this fare normal? Percentile calculator</p>
+          </a>
+
+          <a
+            href="/policy"
+            className="p-3 rounded-xl bg-slate-900/80 hover:bg-purple-900/30 border border-slate-800 hover:border-purple-500/40 transition-all text-left space-y-1 block group"
+          >
+            <div className="flex items-center justify-between text-purple-400 font-bold">
+              <span>4. SIMULATE</span>
+              <span className="text-[10px] text-slate-500 group-hover:text-purple-400 transition-colors">→</span>
+            </div>
+            <p className="text-[11px] text-slate-400">What-if CPI simulator & Index Lab sandbox</p>
+          </a>
+
+          <a
+            href="/provenance"
+            className="p-3 rounded-xl bg-slate-900/80 hover:bg-emerald-900/30 border border-slate-800 hover:border-emerald-500/40 transition-all text-left space-y-1 block group"
+          >
+            <div className="flex items-center justify-between text-emerald-400 font-bold">
+              <span>5. AUDIT</span>
+              <span className="text-[10px] text-slate-500 group-hover:text-emerald-400 transition-colors">→</span>
+            </div>
+            <p className="text-[11px] text-slate-400">100% Provenance trace & data confidence</p>
+          </a>
+        </div>
+      </div>
 
       {/* 5. Top Movers (Rising & Falling) */}
       <TopMovers routes={routes} onSelectCorridor={(c) => { setSelectedCorridor(c); setDrawerRoute(c); }} />

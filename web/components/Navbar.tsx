@@ -21,8 +21,14 @@ import {
   Compass,
   Search,
   X,
+  HelpCircle,
+  ShieldAlert,
+  Calculator,
+  Database,
+  Sparkles,
 } from "lucide-react";
 import { triggerLiveSweep, fetchMarketCoverage, checkBackendHealth } from "../lib/api";
+import SIHGuidedDemoModal from "./intelligence/SIHGuidedDemoModal";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -30,6 +36,7 @@ export default function Navbar() {
   const [isSweeping, setIsSweeping] = useState(false);
   const [backendStatus, setBackendStatus] = useState<'ONLINE' | 'DEGRADED' | 'OFFLINE'>('ONLINE');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sihModalOpen, setSihModalOpen] = useState(false);
 
   useEffect(() => {
     // Check real backend health status
@@ -74,15 +81,15 @@ export default function Navbar() {
 
   const navLinks = [
     { name: "Overview", href: "/", icon: Plane },
+    { name: "Explainer", href: "/explainer", icon: HelpCircle, badge: "WHY" },
+    { name: "Shocks", href: "/shocks", icon: ShieldAlert, badge: "ALERT" },
+    { name: "Fair Fare", href: "/fair-fare", icon: Calculator },
+    { name: "Policy Lab", href: "/policy", icon: Sliders },
     { name: "Observatory", href: "/observatory", icon: Radar, badge: "LIVE" },
-    { name: "Live Scraper", href: "/scraper", icon: Search, badge: "NEW" },
-    { name: "Skyview", href: "/skyview", icon: Compass, badge: "3D" },
-    { name: "Routes", href: "/routes", icon: Navigation },
-    { name: "Forecast", href: "/forecast", icon: TrendingUp },
+    { name: "Live Scraper", href: "/scraper", icon: Search },
+    { name: "Provenance", href: "/provenance", icon: Database, badge: "AUDIT" },
     { name: "MoSPI", href: "/mospi", icon: BarChart3 },
     { name: "DGCA", href: "/dgca", icon: Shield },
-    { name: "Historical", href: "/historical", icon: TrendingUp },
-    { name: "Data", href: "/data", icon: Zap },
     { name: "Methodology", href: "/methodology", icon: BookOpen },
     { name: "System", href: "/admin", icon: Sliders },
   ];
@@ -179,6 +186,15 @@ export default function Navbar() {
               <span className="font-bold">{statusText}</span>
             </div>
 
+            {/* SIH 60s Guided Demo Button */}
+            <button
+              onClick={() => setSihModalOpen(true)}
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 hover:scale-105 transition-all"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>60s DEMO</span>
+            </button>
+
             {/* Sweep Trigger Button */}
             <button
               onClick={handleManualSweep}
@@ -258,7 +274,15 @@ export default function Navbar() {
           </div>
 
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs font-mono text-slate-500">
-            <span>Last Updated: {lastUpdated}</span>
+            <button
+              onClick={() => {
+                setSihModalOpen(true);
+                setMobileMenuOpen(false);
+              }}
+              className="px-3 py-1 rounded bg-blue-600 text-white font-bold"
+            >
+              ⚡ 60s DEMO
+            </button>
             <button
               onClick={() => {
                 setDemoMode(!demoMode);
@@ -271,6 +295,9 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
+      {/* 60s SIH Interactive Demo Modal */}
+      <SIHGuidedDemoModal isOpen={sihModalOpen} onClose={() => setSihModalOpen(false)} />
     </header>
   );
 }

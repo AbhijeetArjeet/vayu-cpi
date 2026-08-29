@@ -217,3 +217,261 @@ class HistoricalComparison(BaseModel):
     historical_percentile: Optional[float] = None
     observation_count: int
     sample_sufficient: bool = True
+
+
+# ============================================================================
+# STATISTICAL INTELLIGENCE PLATFORM SCHEMAS
+# ============================================================================
+
+class AttributionFactor(BaseModel):
+    factor_name: str
+    category: str  # ROUTE_WEIGHT, HORIZON_SPREAD, CARRIER_YIELD, SEASONALITY, ABNORMAL_OUTLIER
+    contribution_pct: float
+    magnitude_pts: float
+    description: str
+    is_estimated: bool = True
+
+
+class CorridorAttribution(BaseModel):
+    corridor: str
+    origin: str
+    destination: str
+    dgca_weight: float
+    route_cpi: float
+    contribution_to_national_pct: float
+    primary_driver: str
+
+
+class InflationExplainerResponse(BaseModel):
+    headline_cpi: float
+    previous_cpi: float
+    change_pct: float
+    period_label: str
+    calculation_date: str
+    primary_drivers: List[AttributionFactor]
+    corridor_contributions: List[CorridorAttribution]
+    methodology_notes: str
+    status: str = "SUCCESS"
+
+
+class AirfareShockItem(BaseModel):
+    id: str
+    corridor: str
+    origin: str
+    destination: str
+    horizon_days: int
+    booking_window: str
+    carrier: str
+    current_fare: float
+    expected_range_low: float
+    expected_range_high: float
+    baseline_mean: float
+    baseline_std: float
+    z_score: float
+    deviation_pct: float
+    severity: str  # NORMAL, ELEVATED, HIGH, SHOCK
+    confidence_pct: float
+    detected_at: str
+    duration_hours: int = 6
+    summary: str
+
+
+class AirfareShockSummary(BaseModel):
+    total_active_shocks: int
+    critical_shocks_count: int
+    high_shocks_count: int
+    elevated_count: int
+    affected_corridors_count: int
+    most_volatile_corridor: str
+    shocks: List[AirfareShockItem]
+
+
+class FairFareDistribution(BaseModel):
+    p10: float
+    p25: float
+    median: float
+    p75: float
+    p90: float
+
+
+class FairFareRequest(BaseModel):
+    origin: str
+    destination: str
+    horizon_days: int = 7
+    carrier: Optional[str] = None
+    current_fare: Optional[float] = None
+    departure_date: Optional[str] = None
+
+
+class FairFareResponse(BaseModel):
+    origin: str
+    destination: str
+    corridor: str
+    horizon_days: int
+    booking_window: str
+    carrier_filter: Optional[str] = None
+    current_fare: Optional[float] = None
+    expected_fare: float
+    expected_range_low: float
+    expected_range_high: float
+    difference_pct: Optional[float] = None
+    percentile_rank: Optional[float] = None
+    fare_status: str  # UNUSUALLY_CHEAP, FAIR_NORMAL, ELEVATED, UNUSUALLY_EXPENSIVE, INSUFFICIENT_DATA
+    confidence_pct: float
+    distribution: FairFareDistribution
+    observations_analyzed: int
+    assessment_notes: str
+
+
+class SimulationRequest(BaseModel):
+    demand_shock_pct: float = 0.0      # -50% to +50%
+    capacity_shock_pct: float = 0.0    # -50% to +50%
+    fuel_surcharge_shock_pct: float = 0.0 # -50% to +100%
+    seasonality_multiplier: float = 1.0 # 0.8 to 1.5
+    custom_corridor_weights: Optional[Dict[str, float]] = None
+
+
+class SimulationCorridorImpact(BaseModel):
+    corridor: str
+    baseline_index: float
+    simulated_index: float
+    difference_pct: float
+    key_transmission_channel: str
+
+
+class SimulationResponse(BaseModel):
+    is_simulation: bool = True
+    baseline_national_cpi: float
+    simulated_national_cpi: float
+    absolute_change_pts: float
+    percentage_change_pct: float
+    macro_interpretation: str
+    demand_elasticity_assumed: float = 0.65
+    capacity_elasticity_assumed: float = 0.85
+    regional_impacts: Dict[str, float]
+    corridor_impacts: List[SimulationCorridorImpact]
+    disclaimer: str = "Hypothetical economic scenario simulation. Not an official government forecast."
+
+
+class DataConfidenceFactor(BaseModel):
+    factor_name: str
+    weight: float
+    score: float  # 0 to 100
+    metric_value: str
+    status: str   # EXCELLENT, GOOD, MODERATE, ATTENTION
+
+
+class DataConfidenceReport(BaseModel):
+    overall_confidence_score: float  # 0 to 100
+    confidence_tier: str            # HIGH_CONFIDENCE, MODERATE_CONFIDENCE, LOW_OBSERVATION
+    total_observations_analyzed: int
+    active_sources_count: int
+    route_coverage_pct: float
+    factors: List[DataConfidenceFactor]
+    transparency_notes: str
+
+
+class IndexTraceNode(BaseModel):
+    id: str
+    level: str  # NATIONAL, REGIONAL, CORRIDOR, CARRIER, OBSERVATION
+    label: str
+    value: float
+    weight_or_share: Optional[float] = None
+    sub_text: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+    children: Optional[List['IndexTraceNode']] = None
+
+
+class IndexTraceTree(BaseModel):
+    root: IndexTraceNode
+    generated_at: str
+    total_traced_observations: int
+
+
+class FareDNAProfile(BaseModel):
+    corridor: str
+    origin: str
+    destination: str
+    volatility_score: float      # 1.0 to 10.0
+    demand_pressure_score: float # 1.0 to 10.0
+    price_anomaly_level: str     # LOW, MODERATE, HIGH, CRITICAL
+    booking_sensitivity: str     # HIGH, MODERATE, INELASTIC
+    source_agreement_pct: float  # 0 to 100
+    median_fare: float
+    fare_range: str
+    hhi_carrier_concentration: float
+    dominant_carrier: str
+    fare_breakdown_percentages: Dict[str, float]  # Base, UDF, Fuel, Taxes
+
+
+class SourcePriceItem(BaseModel):
+    source_name: str
+    portal: str
+    observed_fare: float
+    is_direct: bool
+    status: str  # RETAINED, DOWNWEIGHTED, EXCLUDED
+
+
+class SourceConsensusReport(BaseModel):
+    corridor: str
+    booking_window: str
+    market_consensus_fare: float
+    agreement_score_pct: float
+    has_disagreement: bool
+    source_prices: List[SourcePriceItem]
+    methodology_applied: str
+
+
+class RegionalWeatherItem(BaseModel):
+    region_code: str
+    region_name: str
+    pressure_level: str  # NORMAL, ELEVATED, HIGH, SHOCK
+    weather_icon: str    # SUNNY, PARTLY_CLOUDY, RAINY, THUNDERSTORM
+    average_route_cpi: float
+    primary_hub: str
+    corridors_monitored: int
+    active_shocks_count: int
+
+
+class AirfareWeatherReport(BaseModel):
+    national_weather_summary: str
+    national_pressure_level: str
+    weather_timestamp: str
+    regions: List[RegionalWeatherItem]
+
+
+class EventComparisonItem(BaseModel):
+    event_name: str
+    event_category: str  # FESTIVAL, HOLIDAY, ELECTION, DISASTER
+    dates: str
+    baseline_index: float
+    event_observed_index: float
+    movement_pct: float
+    observation_context: str
+
+
+class EventImpactReport(BaseModel):
+    summary: str
+    comparisons: List[EventComparisonItem]
+    statistical_disclaimer: str = "Comparisons represent observed index differences during event periods, not verified causal claims."
+
+
+class IndexLabRequest(BaseModel):
+    methodology: str = "JEVONS"  # JEVONS, CARLI_DUTOT_ARITHMETIC
+    weighting_scheme: str = "DGCA_TRAFFIC"  # DGCA_TRAFFIC, EQUAL_WEIGHT, CUSTOM
+    booking_horizon: str = "ALL_BLENDED"    # T+1, T+7, T+15, T+30, T+45, ALL_BLENDED
+    custom_weights: Optional[Dict[str, float]] = None
+
+
+class IndexLabResponse(BaseModel):
+    computed_index: float
+    methodology_used: str
+    weighting_used: str
+    horizon_used: str
+    upward_bias_demonstration_pct: Optional[float] = None
+    observation_count: int
+    traffic_coverage_pct: float
+    confidence_score: float
+    formula_latex: str
+    econometric_notes: str
+

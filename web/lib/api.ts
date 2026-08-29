@@ -495,3 +495,398 @@ export const fetchSupportedCorridors = async () => {
   const response = await axios.get(`${API_BASE_URL}/api/v1/scraper/corridors`);
   return response.data;
 };
+
+// ============================================================================
+// STATISTICAL INTELLIGENCE PLATFORM TYPES & APIS
+// ============================================================================
+
+export interface AttributionFactor {
+  factor_name: string;
+  category: string;
+  contribution_pct: number;
+  magnitude_pts: number;
+  description: string;
+  is_estimated: boolean;
+}
+
+export interface CorridorAttribution {
+  corridor: string;
+  origin: string;
+  destination: string;
+  dgca_weight: number;
+  route_cpi: number;
+  contribution_to_national_pct: number;
+  primary_driver: string;
+}
+
+export interface InflationExplainerResponse {
+  headline_cpi: number;
+  previous_cpi: number;
+  change_pct: number;
+  period_label: string;
+  calculation_date: string;
+  primary_drivers: AttributionFactor[];
+  corridor_contributions: CorridorAttribution[];
+  methodology_notes: string;
+  status: string;
+}
+
+export interface AirfareShockItem {
+  id: string;
+  corridor: string;
+  origin: string;
+  destination: string;
+  horizon_days: number;
+  booking_window: string;
+  carrier: string;
+  current_fare: number;
+  expected_range_low: number;
+  expected_range_high: number;
+  baseline_mean: number;
+  baseline_std: number;
+  z_score: number;
+  deviation_pct: number;
+  severity: 'NORMAL' | 'ELEVATED' | 'HIGH' | 'SHOCK';
+  confidence_pct: number;
+  detected_at: string;
+  duration_hours: number;
+  summary: string;
+}
+
+export interface AirfareShockSummary {
+  total_active_shocks: number;
+  critical_shocks_count: number;
+  high_shocks_count: number;
+  elevated_count: number;
+  affected_corridors_count: number;
+  most_volatile_corridor: string;
+  shocks: AirfareShockItem[];
+}
+
+export interface FairFareDistribution {
+  p10: number;
+  p25: number;
+  median: number;
+  p75: number;
+  p90: number;
+}
+
+export interface FairFareRequest {
+  origin: string;
+  destination: string;
+  horizon_days?: number;
+  carrier?: string;
+  current_fare?: number;
+  departure_date?: string;
+}
+
+export interface FairFareResponse {
+  origin: string;
+  destination: string;
+  corridor: string;
+  horizon_days: number;
+  booking_window: string;
+  carrier_filter?: string;
+  current_fare?: number;
+  expected_fare: number;
+  expected_range_low: number;
+  expected_range_high: number;
+  difference_pct?: number;
+  percentile_rank?: number;
+  fare_status: 'UNUSUALLY_CHEAP' | 'FAIR_NORMAL' | 'ELEVATED' | 'UNUSUALLY_EXPENSIVE' | 'INSUFFICIENT_DATA';
+  confidence_pct: number;
+  distribution: FairFareDistribution;
+  observations_analyzed: number;
+  assessment_notes: string;
+}
+
+export interface SimulationRequest {
+  demand_shock_pct?: number;
+  capacity_shock_pct?: number;
+  fuel_surcharge_shock_pct?: number;
+  seasonality_multiplier?: number;
+  custom_corridor_weights?: Record<string, number>;
+}
+
+export interface SimulationCorridorImpact {
+  corridor: string;
+  baseline_index: number;
+  simulated_index: number;
+  difference_pct: number;
+  key_transmission_channel: string;
+}
+
+export interface SimulationResponse {
+  is_simulation: boolean;
+  baseline_national_cpi: number;
+  simulated_national_cpi: number;
+  absolute_change_pts: number;
+  percentage_change_pct: number;
+  macro_interpretation: string;
+  demand_elasticity_assumed: number;
+  capacity_elasticity_assumed: number;
+  regional_impacts: Record<string, number>;
+  corridor_impacts: SimulationCorridorImpact[];
+  disclaimer: string;
+}
+
+export interface DataConfidenceFactor {
+  factor_name: string;
+  weight: number;
+  score: number;
+  metric_value: string;
+  status: 'EXCELLENT' | 'GOOD' | 'MODERATE' | 'ATTENTION';
+}
+
+export interface DataConfidenceReport {
+  overall_confidence_score: number;
+  confidence_tier: 'HIGH_CONFIDENCE' | 'MODERATE_CONFIDENCE' | 'LOW_OBSERVATION';
+  total_observations_analyzed: number;
+  active_sources_count: number;
+  route_coverage_pct: number;
+  factors: DataConfidenceFactor[];
+  transparency_notes: string;
+}
+
+export interface IndexTraceNode {
+  id: string;
+  level: 'NATIONAL' | 'REGIONAL' | 'CORRIDOR' | 'CARRIER' | 'OBSERVATION';
+  label: string;
+  value: number;
+  weight_or_share?: number;
+  sub_text?: string;
+  details?: Record<string, any>;
+  children?: IndexTraceNode[];
+}
+
+export interface IndexTraceTree {
+  root: IndexTraceNode;
+  generated_at: string;
+  total_traced_observations: number;
+}
+
+export interface FareDNAProfile {
+  corridor: string;
+  origin: string;
+  destination: string;
+  volatility_score: number;
+  demand_pressure_score: number;
+  price_anomaly_level: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
+  booking_sensitivity: 'HIGH' | 'MODERATE' | 'INELASTIC';
+  source_agreement_pct: number;
+  median_fare: number;
+  fare_range: string;
+  hhi_carrier_concentration: number;
+  dominant_carrier: string;
+  fare_breakdown_percentages: Record<string, number>;
+}
+
+export interface SourcePriceItem {
+  source_name: string;
+  portal: string;
+  observed_fare: number;
+  is_direct: boolean;
+  status: 'RETAINED' | 'DOWNWEIGHTED' | 'EXCLUDED';
+}
+
+export interface SourceConsensusReport {
+  corridor: string;
+  booking_window: string;
+  market_consensus_fare: number;
+  agreement_score_pct: number;
+  has_disagreement: boolean;
+  source_prices: SourcePriceItem[];
+  methodology_applied: string;
+}
+
+export interface RegionalWeatherItem {
+  region_code: string;
+  region_name: string;
+  pressure_level: 'NORMAL' | 'ELEVATED' | 'HIGH' | 'SHOCK';
+  weather_icon: 'SUNNY' | 'PARTLY_CLOUDY' | 'RAINY' | 'THUNDERSTORM';
+  average_route_cpi: number;
+  primary_hub: string;
+  corridors_monitored: number;
+  active_shocks_count: number;
+}
+
+export interface AirfareWeatherReport {
+  national_weather_summary: string;
+  national_pressure_level: string;
+  weather_timestamp: string;
+  regions: RegionalWeatherItem[];
+}
+
+export interface EventComparisonItem {
+  event_name: string;
+  event_category: string;
+  dates: string;
+  baseline_index: number;
+  event_observed_index: number;
+  movement_pct: number;
+  observation_context: string;
+}
+
+export interface EventImpactReport {
+  summary: string;
+  comparisons: EventComparisonItem[];
+  statistical_disclaimer: string;
+}
+
+export interface IndexLabRequest {
+  methodology: 'JEVONS' | 'CARLI_DUTOT_ARITHMETIC';
+  weighting_scheme: 'DGCA_TRAFFIC' | 'EQUAL_WEIGHT' | 'CUSTOM';
+  booking_horizon: string;
+  custom_weights?: Record<string, number>;
+}
+
+export interface IndexLabResponse {
+  computed_index: number;
+  methodology_used: string;
+  weighting_used: string;
+  horizon_used: string;
+  upward_bias_demonstration_pct?: number;
+  observation_count: number;
+  traffic_coverage_pct: number;
+  confidence_score: number;
+  formula_latex: string;
+  econometric_notes: string;
+}
+
+// Client functions
+
+export const fetchInflationExplainer = async (
+  mode: DataMode = 'live',
+  period_days: number = 30,
+  corridor?: string
+): Promise<InflationExplainerResponse | null> => {
+  try {
+    const url = corridor
+      ? `${getApiBaseUrl()}/api/v1/intelligence/explainer?mode=${mode}&period_days=${period_days}&corridor=${corridor}`
+      : `${getApiBaseUrl()}/api/v1/intelligence/explainer?mode=${mode}&period_days=${period_days}`;
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchInflationExplainer failed:", err);
+    return null;
+  }
+};
+
+export const fetchAirfareShocks = async (
+  mode: DataMode = 'combined',
+  min_severity: string = 'ELEVATED',
+  limit: number = 50
+): Promise<AirfareShockItem[]> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/api/v1/intelligence/shocks?mode=${mode}&min_severity=${min_severity}&limit=${limit}`);
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (err) {
+    console.error("[API_ERROR] fetchAirfareShocks failed:", err);
+    return [];
+  }
+};
+
+export const fetchShockSummary = async (mode: DataMode = 'combined'): Promise<AirfareShockSummary | null> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/api/v1/intelligence/shocks/summary?mode=${mode}`);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchShockSummary failed:", err);
+    return null;
+  }
+};
+
+export const calculateFairFare = async (req: FairFareRequest): Promise<FairFareResponse | null> => {
+  try {
+    const res = await axios.post(`${getApiBaseUrl()}/api/v1/intelligence/fair-fare`, req);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] calculateFairFare failed:", err);
+    return null;
+  }
+};
+
+export const runWhatIfSimulation = async (req: SimulationRequest): Promise<SimulationResponse | null> => {
+  try {
+    const res = await axios.post(`${getApiBaseUrl()}/api/v1/intelligence/simulate`, req);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] runWhatIfSimulation failed:", err);
+    return null;
+  }
+};
+
+export const fetchDataConfidence = async (mode: DataMode = 'live'): Promise<DataConfidenceReport | null> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/api/v1/intelligence/confidence?mode=${mode}`);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchDataConfidence failed:", err);
+    return null;
+  }
+};
+
+export const fetchIndexTrace = async (mode: DataMode = 'live'): Promise<IndexTraceTree | null> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/api/v1/intelligence/index-trace?mode=${mode}`);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchIndexTrace failed:", err);
+    return null;
+  }
+};
+
+export const fetchFareDNA = async (origin: string, destination: string): Promise<FareDNAProfile | null> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/api/v1/intelligence/fare-dna/${origin}/${destination}`);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchFareDNA failed:", err);
+    return null;
+  }
+};
+
+export const fetchSourceConsensus = async (
+  origin: string = "DEL",
+  destination: string = "BOM",
+  horizon_days: number = 7
+): Promise<SourceConsensusReport | null> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/api/v1/intelligence/source-consensus?origin=${origin}&destination=${destination}&horizon_days=${horizon_days}`);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchSourceConsensus failed:", err);
+    return null;
+  }
+};
+
+export const fetchAirfareWeather = async (): Promise<AirfareWeatherReport | null> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/api/v1/intelligence/airfare-weather`);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchAirfareWeather failed:", err);
+    return null;
+  }
+};
+
+export const fetchEventImpact = async (): Promise<EventImpactReport | null> => {
+  try {
+    const res = await axios.get(`${getApiBaseUrl()}/api/v1/intelligence/event-impact`);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] fetchEventImpact failed:", err);
+    return null;
+  }
+};
+
+export const runIndexLabExperiment = async (req: IndexLabRequest): Promise<IndexLabResponse | null> => {
+  try {
+    const res = await axios.post(`${getApiBaseUrl()}/api/v1/intelligence/index-lab`, req);
+    return res.data;
+  } catch (err) {
+    console.error("[API_ERROR] runIndexLabExperiment failed:", err);
+    return null;
+  }
+};
+

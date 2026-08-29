@@ -136,6 +136,11 @@ INDIAN_AIRPORTS = {
 def get_route_weight(origin: str, dest: str) -> float:
     return ROUTE_WEIGHTS.get(f"{origin}-{dest}", 0.02)
 
+# Tuple-keyed corridor weights mapping for statistical engines
+CORRIDOR_WEIGHTS: Dict[Tuple[str, str], float] = {
+    tuple(k.split("-")): v for k, v in ROUTE_WEIGHTS.items() if "-" in k
+}
+
 def get_horizon_alpha(horizon_days: int) -> float:
     return HORIZON_ALPHA.get(horizon_days, 0.20)
 
@@ -144,3 +149,4 @@ def get_horizon_code(horizon_days: int) -> str:
 
 def parse_horizon_code(code: str) -> int:
     return CODE_TO_HORIZON.get(code.upper(), 7)
+
