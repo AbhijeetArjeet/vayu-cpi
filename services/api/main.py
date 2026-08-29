@@ -51,18 +51,10 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Allowed production and development origins
-ALLOWED_ORIGINS = [
-    "https://vayu-cpi.vercel.app",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -70,15 +62,10 @@ app.add_middleware(
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    origin = request.headers.get("origin")
-    headers = {}
-    if origin and (origin in ALLOWED_ORIGINS or origin.endswith(".vercel.app") or "localhost" in origin):
-        headers["Access-Control-Allow-Origin"] = origin
-        headers["Access-Control-Allow-Credentials"] = "true"
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
-        headers=headers,
+        headers={"Access-Control-Allow-Origin": "*"},
     )
 
 

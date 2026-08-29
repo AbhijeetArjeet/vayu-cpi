@@ -63,14 +63,22 @@ def compute_route_jevons_index(
     now_max = datetime.combine(calculation_date, datetime.max.time())
     now_min = now_max - timedelta(days=period_days)
 
-    current_obs = fetch_observations(
-        origin,
-        destination,
-        horizon_days,
-        since=now_min,
-        until=now_max,
-        mode=mode,
-    )
+    if mode == "historical":
+        current_obs = fetch_observations(
+            origin,
+            destination,
+            horizon_days,
+            mode="historical",
+        )
+    else:
+        current_obs = fetch_observations(
+            origin,
+            destination,
+            horizon_days,
+            since=now_min,
+            until=now_max,
+            mode=mode,
+        )
 
     current_prices = normalize(current_obs)
 
@@ -180,11 +188,17 @@ def compute_national_composite_cpi(
     }
     source_label = source_label_map.get(mode, f"LIVE OBSERVATIONS ({period_days}D)")
 
-    all_obs = fetch_all_observations(
-        mode=mode,
-        since=window_start_dt,
-        until=window_end_dt,
-    )
+    if mode == "historical":
+        all_obs = fetch_all_observations(
+            mode="historical",
+            limit=5000,
+        )
+    else:
+        all_obs = fetch_all_observations(
+            mode=mode,
+            since=window_start_dt,
+            until=window_end_dt,
+        )
     
     # Group observations by (origin, destination, horizon_days)
     obs_grouped = {}

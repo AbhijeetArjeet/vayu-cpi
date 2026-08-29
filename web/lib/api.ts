@@ -205,13 +205,21 @@ export const getApiBaseUrl = (): string => {
 const API_BASE_URL = getApiBaseUrl();
 
 export const checkBackendHealth = async (): Promise<'ONLINE' | 'DEGRADED' | 'OFFLINE'> => {
+  const url = getApiBaseUrl();
   try {
-    const res = await axios.get(`${getApiBaseUrl()}/health`, { timeout: 4000 });
-    if (res.data?.status === 'ok') {
+    const res = await axios.get(`${url}/health`, { timeout: 8000 });
+    if (res.data?.status === 'ok' || res.data?.status === 'SUCCESS' || res.data?.service === 'vayu-cpi-api') {
       return 'ONLINE';
     }
     return 'DEGRADED';
-  } catch {
+  } catch (err) {
+    try {
+      const fallback = await axios.get(`${url}/`, { timeout: 6000 });
+      if (fallback.data?.service || fallback.data?.status === 'ok') {
+        return 'ONLINE';
+      }
+    } catch {}
+    console.warn(`[VAYU_HEALTH] Backend check failed at ${url}:`, err);
     return 'OFFLINE';
   }
 };
