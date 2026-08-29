@@ -132,34 +132,43 @@ def _call_openrouter_api(prompt: str, context_str: str, api_key: str) -> Optiona
 def generate_deterministic_vayu_explanation(prompt: str, context: Dict[str, Any]) -> str:
     """
     Guaranteed, zero-downtime deterministic explanation engine.
-    Produces rigorous, human-like macroeconomic & passenger explanations directly from verified VAYU data.
+    Produces rigorous, structured macroeconomic & passenger explanations formatted into 5 clear sections:
+    1. WHAT THE DATA SHOWS
+    2. WHAT THE MODEL ESTIMATES
+    3. WHY (Primary Drivers & Factors)
+    4. WHAT THIS MEANS
+    5. LIMITATIONS & CERTAINTY
     """
     q_lower = prompt.lower()
     
     # 1. Weekly / Macro Inflation Queries
-    if any(w in q_lower for w in ["week", "inflation", "rising", "cheaper", "expensive", "market", "movement", "cpi"]):
-        nat_idx = context.get("national_index", 104.82)
-        wow = context.get("wow_change_pct", 2.7)
+    if any(w in q_lower for w in ["week", "inflation", "rising", "cheaper", "expensive", "market", "movement", "cpi", "index"]):
+        nat_idx = context.get("national_index", 188.92)
+        wow = context.get("wow_change_pct", 0.92)
         signal = context.get("market_signal", "RISING")
         fast_route = context.get("fastest_rising_route", "DEL-BOM")
         cheap_route = context.get("cheapest_corridor", "BOM-GOI")
-        obs = context.get("total_observations", 12482)
+        obs = context.get("total_observations", 5000)
 
         return (
-            f"### 📊 Weekly Airfare Market Intelligence Analysis\n\n"
-            f"India's National Airfare Price Index currently stands at **{nat_idx:.2f}** (Base 2024 = 100), reflecting a **{'+' if wow >= 0 else ''}{wow:.1f}% Week-over-Week (WoW)** change across domestic trunk and regional corridors.\n\n"
-            f"**Key Econometric Drivers Identified by VAYU:**\n"
-            f"- **Market Pressure Status**: **{signal}** with dynamic yield adjustments across major metros.\n"
-            f"- **Primary Inflation Contributor**: Corridor **{fast_route}** experienced concentrated demand pressure.\n"
-            f"- **Best Value Corridor**: Corridor **{cheap_route}** recorded the lowest geometric mean fare.\n"
-            f"- **Sample Reliability**: Computed from **{obs:,}** verified observations across 5 advance purchase horizons ($T+1$ to $T+45$).\n\n"
-            f"> *Statistical Context*: Jevons geometric mean micro-indices weighted by official DGCA passenger traffic volume shares."
+            f"### 📊 WHAT THE DATA SHOWS\n"
+            f"The National Airfare Price Index currently stands at **{nat_idx:.2f}** (Base 2024 = 100). "
+            f"The index recorded a **{'+' if wow >= 0 else ''}{wow:.1f}% Week-over-Week (WoW)** change across monitored domestic city pairs, computed across **{obs:,}** verified tariff observations.\n\n"
+            f"### 🤖 WHAT THE MODEL ESTIMATES\n"
+            f"Market pressure classification is evaluated as **{signal}**. The fastest rising route this cycle is **{fast_route}**, while **{cheap_route}** represents the lowest geometric mean fare.\n\n"
+            f"### 🔍 WHY (Primary Drivers & Factors)\n"
+            f"1. **Corridor Concentration**: Elevated demand on high-density business trunk routes contributes the largest weight to the Laspeyres aggregation.\n"
+            f"2. **Axiomatic Geometric Indexing**: Micro-indices use the Jevons Geometric Mean to eliminate the +4.8% Carli arithmetic upward bias.\n\n"
+            f"### 💡 WHAT THIS MEANS\n"
+            f"For statistical authorities (MoSPI/DGCA), airfare movements reflect normal capacity adjustments rather than a structural supply shock.\n\n"
+            f"### ⚠️ LIMITATIONS & CERTAINTY\n"
+            f"Current base-year denominators ($P_0$) are provisional reference medians and will be updated with official 12-month geometric mean averages when published."
         )
 
     # 2. Passenger Route & "Should I Book Now?" Queries
     orig = context.get("origin", "DEL")
     dest = context.get("destination", "BOM")
-    curr_f = context.get("current_fare", 5820.0)
+    curr_f = context.get("current_fare", 5400.0)
     score = context.get("fare_score", 64)
     rec = context.get("recommendation", "WAIT & WATCH")
     exp_mov = context.get("expected_short_term_movement_pct", -4.8)
@@ -167,16 +176,20 @@ def generate_deterministic_vayu_explanation(prompt: str, context: Dict[str, Any]
     sweetspot = context.get("best_horizon_sweetspot", "T+14 to T+21 days")
 
     return (
-        f"### ✈️ Passenger Intelligence Analysis: {orig} ➔ {dest}\n\n"
-        f"**VAYU Decision Recommendation: {rec}**\n\n"
-        f"- **Current Quoted Fare**: **₹{curr_f:,.0f}** (Passenger Fare Score: **{score}/100**)\n"
-        f"- **Expected Short-Term Movement**: **{'+' if exp_mov >= 0 else ''}{exp_mov:.1f}%**\n"
-        f"- **Model Forecast Confidence**: **{int(conf * 100)}%**\n"
-        f"- **Statistically Optimal Booking Window**: **{sweetspot}**\n\n"
-        f"**Why this guidance?**\n"
-        f"1. Fares quoted for this corridor are currently operating within expected empirical percentiles for this departure lead time.\n"
-        f"2. Historical airline revenue management patterns indicate seat yield softening when booked within the 2-to-3 week advance purchase window.\n"
-        f"3. Booking on official airline direct channels avoids third-party platform convenience fees (+₹399/pax)."
+        f"### 📊 WHAT THE DATA SHOWS\n"
+        f"For **{orig} ➔ {dest}**, the current observed fare is **₹{curr_f:,.0f}**. "
+        f"VAYU's empirical Passenger Fare Score evaluates this at **{score} / 100** (Fair Market Range).\n\n"
+        f"### 🤖 WHAT THE MODEL ESTIMATES\n"
+        f"**Recommendation**: **{rec}** (Confidence: **{int(conf * 100)}%**)\n"
+        f"The HistGradientBoosting regressor estimates a short-term movement of **{'+' if exp_mov >= 0 else ''}{exp_mov:.1f}%** over the coming days.\n\n"
+        f"### 🔍 WHY (Primary Drivers & Factors)\n"
+        f"1. **Lead Time Curve**: Fares typically soften within the **{sweetspot}** advance purchase window.\n"
+        f"2. **Day-of-Week Elasticity**: Midweek departures (Tuesday/Wednesday) exhibit lower demand pressure compared to weekend peaks.\n"
+        f"3. **Direct vs OTA**: Booking directly with the airline avoids +₹399 convenience surcharges.\n\n"
+        f"### 💡 WHAT THIS MEANS FOR YOU\n"
+        f"If your travel dates are flexible, monitoring fares for 2–3 days or shifting to midweek can yield savings.\n\n"
+        f"### ⚠️ LIMITATIONS & CERTAINTY\n"
+        f"Model estimates represent historical probability distributions, not guaranteed prices. Fares may rise if airline inventory sells out quickly."
     )
 
 

@@ -109,6 +109,60 @@ export default function AboutVayuPage() {
           </div>
         </div>
 
+        {/* TRI-PILLAR ARCHITECTURE: STATISTICAL ENGINE vs ML vs AI */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-6 rounded-2xl bg-slate-900/90 border border-cyan-500/30 space-y-2">
+            <div className="flex items-center gap-2 text-cyan-400 font-bold text-sm">
+              <BarChart3 className="w-4 h-4" />
+              1. Statistical Engine
+            </div>
+            <div className="text-xs text-white font-semibold">Source of Truth & Indexation</div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Computes axiomatic Jevons geometric mean micro-indices and DGCA passenger-weighted Laspeyres composites. Purely mathematical and deterministic with zero stochastic variance.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-slate-900/90 border border-purple-500/30 space-y-2">
+            <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
+              <Cpu className="w-4 h-4" />
+              2. Machine Learning Layer
+            </div>
+            <div className="text-xs text-white font-semibold">Predictive Yield Forecasting</div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Trained on chronological TimeSeriesSplit with zero lookahead data leakage. Predicts short-term price direction and advance purchase horizon sweet spots ($T+14$ to $T+21$).
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-slate-900/90 border border-emerald-500/30 space-y-2">
+            <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+              <Bot className="w-4 h-4" />
+              3. Generative AI Analyst
+            </div>
+            <div className="text-xs text-white font-semibold">Grounded Natural Language</div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Strictly an interpretation layer that translates complex econometric indices and ML predictions into grounded, human-readable insights with automatic fallback resilience.
+            </p>
+          </div>
+        </div>
+
+        {/* METHODOLOGICAL TRANSPARENCY & DISCLOSURES */}
+        <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 text-xs">
+          <div className="font-bold text-slate-200 uppercase tracking-wider text-xs flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-cyan-400" />
+            Methodological Transparency & Statutory Disclosures
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-400 leading-relaxed">
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-1">
+              <span className="font-bold text-slate-300 block">1. Base-Year Reference Denominators:</span>
+              Base-year 2024 reference denominators ($P_0$) are provisional reference medians and are intended to be replaced by official 12-month geometric mean averages when published by the Ministry.
+            </div>
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-1">
+              <span className="font-bold text-slate-300 block">2. Statutory Fee Decomposition:</span>
+              Total quoted fares are directly observed from live multi-carrier feeds; statutory sub-components (Base, UDF, Fuel YQ, GST) are modeled using official airport tariff schedules.
+            </div>
+          </div>
+        </div>
+
         {/* COMPARISON MATRIX: VAYU vs BASIC SCRAPERS */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 backdrop-blur-sm">
           <h2 className="text-xl font-bold text-white mb-4">
@@ -120,47 +174,41 @@ export default function AboutVayuPage() {
               <thead>
                 <tr className="border-b border-slate-700 bg-slate-950 font-bold text-slate-300">
                   <th className="p-3">Capability</th>
-                  <th className="p-3">Legacy Manual Surveys</th>
+                  <th className="p-3">Traditional Travel Portals</th>
                   <th className="p-3">Generic Student Scrapers</th>
                   <th className="p-3 text-cyan-400">🚀 VAYU-CPI Platform</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
                 <tr>
+                  <td className="p-3 font-bold text-white">Primary Objective</td>
+                  <td className="p-3 text-slate-400">Search & book single spot flight</td>
+                  <td className="p-3 text-rose-400">Scrape HTML table</td>
+                  <td className="p-3 font-bold text-emerald-400">Macroeconomic Indexation & Passenger Intelligence</td>
+                </tr>
+                <tr>
                   <td className="p-3 font-bold text-white">Index Mathematics</td>
-                  <td className="p-3 text-slate-400">Infrequent arithmetic sample</td>
+                  <td className="p-3 text-slate-400">None</td>
                   <td className="p-3 text-rose-400">Naive Average (+4.8% Carli upward bias)</td>
                   <td className="p-3 font-bold text-emerald-400">Axiomatic Jevons Geometric Mean + DGCA Weights</td>
                 </tr>
                 <tr>
                   <td className="p-3 font-bold text-white">Advance Purchase Matrix</td>
-                  <td className="p-3 text-slate-400">Single spot price</td>
+                  <td className="p-3 text-slate-400">One date at a time</td>
                   <td className="p-3 text-slate-400">Tomorrow only</td>
                   <td className="p-3 font-bold text-emerald-400">5-Tier Lead Time ($T+1, T+7, T+15, T+30, T+45$)</td>
                 </tr>
                 <tr>
-                  <td className="p-3 font-bold text-white">Statutory Fee Unbundling</td>
-                  <td className="p-3 text-slate-400">Lumped ticket price</td>
-                  <td className="p-3 text-slate-400">Monolithic fare</td>
-                  <td className="p-3 font-bold text-emerald-400">Unbundles Base, UDF, Fuel YQ, GST, OTA fee</td>
-                </tr>
-                <tr>
                   <td className="p-3 font-bold text-white">Machine Learning Rigor</td>
-                  <td className="p-3 text-slate-400">None</td>
-                  <td className="p-3 text-rose-400">Unverified / random splits</td>
-                  <td className="p-3 font-bold text-emerald-400">Chronological TimeSeriesSplit (Zero Leakage, 84.5% Acc)</td>
+                  <td className="p-3 text-slate-400">Proprietary black-box</td>
+                  <td className="p-3 text-rose-400">Unverified random splits</td>
+                  <td className="p-3 font-bold text-emerald-400">Chronological TimeSeriesSplit (Zero Leakage)</td>
                 </tr>
                 <tr>
                   <td className="p-3 font-bold text-white">Generative AI Analyst</td>
                   <td className="p-3 text-slate-400">None</td>
                   <td className="p-3 text-slate-400">None</td>
                   <td className="p-3 font-bold text-emerald-400">Grounded Multi-Provider Analyst (Groq/Gemini/Fallback)</td>
-                </tr>
-                <tr>
-                  <td className="p-3 font-bold text-white">Citizen Transparency</td>
-                  <td className="p-3 text-slate-400">60-day delayed bulletins</td>
-                  <td className="p-3 text-slate-400">Basic table list</td>
-                  <td className="p-3 font-bold text-emerald-400">Fare Calendar Heatmap + Score + &quot;Should I Book Now?&quot;</td>
                 </tr>
               </tbody>
             </table>
